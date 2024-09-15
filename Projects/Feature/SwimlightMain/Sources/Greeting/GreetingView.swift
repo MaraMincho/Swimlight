@@ -29,7 +29,9 @@ struct GreetingView: View {
         .foregroundStyle(.black)
       SLCalendarView()
         .frame(maxWidth: .infinity, idealHeight: 450)
-      Button {} label: {
+      Button {
+        store.send(.tappedDetailButton)
+      } label: {
         Text("눌러 ")
           .foregroundStyle(.black)
       }
@@ -46,7 +48,10 @@ struct GreetingView: View {
     }
     .navigationBarBackButtonHidden()
     .onAppear {
-      store.send(.view(.onAppear(true)))
+      store.send(.onAppear(true))
+    }
+    .sheet(item: $store.scope(state: \.detail, action: \.detail)) { store in
+      SwimDetailView(store: store)
     }
   }
 
