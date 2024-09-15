@@ -5,9 +5,9 @@
 //  Created by MaraMincho on 9/15/24.
 //  Copyright © 2024 com.swimlight. All rights reserved.
 //
+import Combine
 import ComposableArchitecture
 import Foundation
-import Combine
 
 // MARK: - Splash
 
@@ -24,8 +24,6 @@ struct Splash {
     case pushNextScreen
   }
 
-
-
   var body: some Reducer<State, Action> {
     Reduce { state, action in
       switch action {
@@ -37,7 +35,7 @@ struct Splash {
         return .publisher {
           Just(())
             .delay(for: 2, scheduler: RunLoop.main)
-            .map{ _ in .pushNextScreen}
+            .map { _ in .pushNextScreen }
         }
       case .pushNextScreen:
         ScreenPushPublisher.send(.greeting)

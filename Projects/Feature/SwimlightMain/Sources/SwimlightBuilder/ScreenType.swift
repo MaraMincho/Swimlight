@@ -6,8 +6,9 @@
 //  Copyright © 2024 com.swimlight. All rights reserved.
 //
 
-import Foundation
 import Combine
+import Foundation
+
 // MARK: - ScreenType
 
 enum ScreenType {
@@ -15,10 +16,12 @@ enum ScreenType {
   case greeting
 }
 
+// MARK: - ScreenPushPublisher
+
 public final class ScreenPushPublisher {
   private init() {}
   private var _publisher: PassthroughSubject<ScreenType, Never> = .init()
-  static var publisher: AnyPublisher<ScreenType, Never> { shared._publisher.eraseToAnyPublisher()}
+  static var publisher: AnyPublisher<ScreenType, Never> { shared._publisher.eraseToAnyPublisher() }
   static func send(_ type: ScreenType) {
     shared._publisher.send(type)
   }

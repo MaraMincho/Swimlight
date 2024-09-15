@@ -48,7 +48,7 @@ struct SplashView: View {
     }
     .navigationBarBackButtonHidden()
     .onAppear {
-      store.send(.view(.onAppear(true)))
+      store.send(.onAppear(true))
     }
   }
 

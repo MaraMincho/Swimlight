@@ -41,4 +41,3 @@ public struct SwimlightBuilderView: View {
     type = .splash
   }
 }
-
