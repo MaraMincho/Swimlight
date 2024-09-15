@@ -24,14 +24,23 @@ struct GreetingView: View {
 
   @ViewBuilder
   private func makeContentView() -> some View {
-    Text("안녕로봇")
+    VStack(spacing: 6) {
+      Text("안녕하세요\n오늘도 즐거운 수영 되세요")
+        .foregroundStyle(.black)
+      SLCalendarView()
+        .frame(maxWidth: .infinity, idealHeight: 450)
+      Button {} label: {
+        Text("눌러 ")
+          .foregroundStyle(.black)
+      }
+    }
   }
 
   var body: some View {
     ZStack {
       Color.white
         .ignoresSafeArea()
-      VStack(spacing: 0) {
+      ScrollView {
         makeContentView()
       }
     }

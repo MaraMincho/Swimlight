@@ -23,7 +23,9 @@ public struct SwimlightBuilderView: View {
 
   public var body: some View {
     makeContent()
-      .ignoresSafeArea()
+      .onReceive(ScreenPushPublisher.publisher) { currentScreenType in
+        type = currentScreenType
+      }
   }
 
   @ViewBuilder
