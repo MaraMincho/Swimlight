@@ -24,16 +24,13 @@ struct GreetingView: View {
 
   @ViewBuilder
   private func makeContentView() -> some View {
-    VStack(spacing: 0) {
-      Text("하이 나는 그리팅")
-      Text("하이 나는 그리팅")
-        .font(.pretendard(.bold, size: 16))
-    }
+    Text("안녕로봇")
   }
 
   var body: some View {
     ZStack {
       Color.white
+        .ignoresSafeArea()
       VStack(spacing: 0) {
         makeContentView()
       }
@@ -44,7 +41,11 @@ struct GreetingView: View {
     }
   }
 
-  private enum Metrics {}
+  private enum Metrics {
+    static let TextTopSpacing: CGFloat = 82
+    static let TextAndLogoSpacing: CGFloat = 60
+    static let logoHorizontalSpacing: CGFloat = 50
+  }
 
   private enum Constants {}
 }

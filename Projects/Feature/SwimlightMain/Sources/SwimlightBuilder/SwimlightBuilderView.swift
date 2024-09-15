@@ -23,15 +23,17 @@ public struct SwimlightBuilderView: View {
 
   public var body: some View {
     makeContent()
+      .ignoresSafeArea()
   }
 
   @ViewBuilder
   private func makeContent() -> some View {
     switch type {
     case .splash:
-      GreetingView(store: greetingStore)
-    case .greeting:
       SplashView(store: splashStore)
+
+    case .greeting:
+      GreetingView(store: greetingStore)
     }
   }
 
@@ -40,9 +42,3 @@ public struct SwimlightBuilderView: View {
   }
 }
 
-// MARK: - ScreenType
-
-enum ScreenType {
-  case splash
-  case greeting
-}
