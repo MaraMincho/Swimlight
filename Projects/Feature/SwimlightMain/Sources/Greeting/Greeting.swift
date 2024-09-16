@@ -83,6 +83,7 @@ struct Greeting {
           .run { send in
             let status = try await healthKitManager.authorizationStatus()
             await determineHealthKitStatus(status, send: send)
+            try await healthKitManager.readSwimWorkouts()
           },
           .publisher {
             state

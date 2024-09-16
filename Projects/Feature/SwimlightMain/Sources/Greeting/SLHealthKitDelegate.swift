@@ -65,6 +65,56 @@ struct SLHealthKitManager {
     try await store.requestAuthorization(toShare: .init(typesToShare), read: .init(typesToRead))
   }
 
+  var readSwimWorkouts: () async throws -> [HKWorkout]
+  private static func _readSwimWorkouts() async throws -> [HKWorkout] {
+    let workoutPredicate = HKQuery.predicateForWorkouts(with: .swimming)
+    let startDate = DateComponents(
+      calendar: Calendar(
+        identifier: .gregorian
+      ),
+      year: 2024,
+      month: 1,
+      day: 1
+    ).date ?? .now.addingTimeInterval(-(60 * 60 * 24 * 10))
+    let datePredicate = HKQuery.predicateForSamples(withStart: .now.addingTimeInterval(-(60 * 60 * 24 * 10)), end: .now, options: .strictStartDate)
+    let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+      workoutPredicate,
+    ])
+    let samples = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKSample], Error>) in
+      store.execute(
+        HKSampleQuery(
+          sampleType: .workoutType(),
+          predicate: predicate,
+          limit: HKObjectQueryNoLimit,
+          sortDescriptors: [.init(keyPath: \HKSample.startDate, ascending: false)],
+          resultsHandler: { _, samples, error in
+            if let hasError = error {
+              continuation.resume(throwing: hasError)
+              return
+            }
+
+            print(samples)
+            guard let samples else {
+              print("*** Invalid State: This can only fail if there was an error. ***")
+              continuation.resume(throwing: NSError())
+              return
+            }
+
+            continuation.resume(returning: samples)
+          }
+        )
+      )
+    }
+
+    guard let workouts = samples as? [HKWorkout] else {
+      return []
+    }
+    let dateFormatter = DateFormatter()
+    dateFormatter.dateFormat = "yyyy-MM-dd, hh-mm-ss"
+    workouts.forEach { print(dateFormatter.string(from: $0.startDate)) }
+    return workouts
+  }
+
   static func readWorkouts() async throws -> [HKQuantitySample]? {
     let workoutPredicate = HKQuery.predicateForWorkouts(with: .swimming)
 
@@ -115,7 +165,8 @@ extension SLHealthKitManager: DependencyKey {
   static var liveValue: SLHealthKitManager = .init(
     isHealthDataAvailable: _isHealthDataAvailable,
     authorizationStatus: _authorizationStatus,
-    requestAuthorization: _requestAuthorization
+    requestAuthorization: _requestAuthorization,
+    readSwimWorkouts: _readSwimWorkouts
   )
 }
 
