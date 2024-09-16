@@ -16,6 +16,7 @@ struct Greeting {
   struct State: Equatable {
     var isOnAppear = false
     @Presents var detail: SwimDetailReducer.State?
+    var calendarDelegate: SLCalendarDelegate = .init()
     init() {}
   }
 
@@ -23,6 +24,15 @@ struct Greeting {
     case onAppear(Bool)
     case detail(PresentationAction<SwimDetailReducer.Action>)
     case tappedDetailButton
+    case changeCalendarSelection(DateComponents)
+  }
+
+  private func transformSLCalendarDelegate(_ output: SLCalendarDelegate.Output) -> Action {
+    switch output {
+    case let .selectedDate(dateComponents):
+      return .changeCalendarSelection(dateComponents)
+    }
+    return .detail(.dismiss)
   }
 
   var body: some Reducer<State, Action> {
@@ -33,12 +43,22 @@ struct Greeting {
           return .none
         }
         state.isOnAppear = isAppear
-        return .none
+        return .merge(
+          .publisher {
+            state
+              .calendarDelegate
+              .outputPublisher
+              .map { transformSLCalendarDelegate($0) }
+          }
+        )
 
       case .tappedDetailButton:
         state.detail = .init()
-
         return .none
+
+      case let .changeCalendarSelection(component):
+        return .none
+
       case .detail:
         return .none
       }

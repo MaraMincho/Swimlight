@@ -34,8 +34,20 @@ final class SLCalendarViewController: UIViewController {
 // MARK: - SLCalendarView
 
 struct SLCalendarView: UIViewControllerRepresentable {
+  weak var calendarDelegate: UICalendarViewDelegate?
+  weak var singleSelectDelegate: UICalendarSelectionSingleDateDelegate?
+  init(
+    calendarDelegate: UICalendarViewDelegate? = nil,
+    singleSelectDelegate: UICalendarSelectionSingleDateDelegate? = nil
+  ) {
+    self.calendarDelegate = calendarDelegate
+    self.singleSelectDelegate = singleSelectDelegate
+  }
+
   func makeUIViewController(context _: Context) -> SLCalendarViewController {
     let vc = SLCalendarViewController()
+    vc.calendarView.delegate = calendarDelegate
+    vc.calendarView.selectionBehavior = UICalendarSelectionSingleDate(delegate: singleSelectDelegate)
     return vc
   }
 

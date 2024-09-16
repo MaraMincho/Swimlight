@@ -47,24 +47,29 @@ struct GreetingView: View {
     let buttonTitle = "눌러용"
     let isDisable = false
     VStack(spacing: 6) {
-      SLCalendarView()
-        .frame(maxWidth: .infinity, idealHeight: 450)
-        .preferredColorScheme(.light)
+      SLCalendarView(
+        calendarDelegate: store.calendarDelegate,
+        singleSelectDelegate: store.calendarDelegate
+      )
+      .frame(maxWidth: .infinity, idealHeight: 450)
+      .preferredColorScheme(.light)
 
       Button {
         store.send(.tappedDetailButton)
       } label: {
         Text(buttonTitle)
+          .foregroundStyle(Color.white)
           .foregroundStyle(.black)
           .padding(.vertical, 12)
           .frame(maxWidth: .infinity)
           .background(isDisable ? SLColor.gray01.color : SLColor.main01.color)
           .clipShape(RoundedRectangle(cornerRadius: 4))
       }
+      .padding(.horizontal, 4)
     }
     .padding(.vertical, 6)
     .clipShape(RoundedRectangle(cornerRadius: 6))
-    .background(Color.main03.opacity(0.5))
+    .background(Color.main03.opacity(0.2))
   }
 
   @ViewBuilder
