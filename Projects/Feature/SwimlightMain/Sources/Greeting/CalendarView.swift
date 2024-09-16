@@ -24,6 +24,7 @@ final class SLCalendarViewController: UIViewController {
 
   var calendarView: UICalendarView = {
     let view = UICalendarView()
+    view.tintColor = UIColor(SLColor.main01.color)
 
     view.translatesAutoresizingMaskIntoConstraints = false
     return view

@@ -29,6 +29,8 @@ struct GreetingView: View {
         .foregroundStyle(.black)
       SLCalendarView()
         .frame(maxWidth: .infinity, idealHeight: 450)
+        .preferredColorScheme(.light)
+
       Button {
         store.send(.tappedDetailButton)
       } label: {
@@ -36,6 +38,7 @@ struct GreetingView: View {
           .foregroundStyle(.black)
       }
     }
+    .frame(maxWidth: .infinity)
   }
 
   var body: some View {
