@@ -10,6 +10,10 @@ import Combine
 import UIKit
 
 final class SLCalendarDelegate: NSObject, UICalendarViewDelegate, UICalendarSelectionSingleDateDelegate {
+  override init() {
+    super.init()
+  }
+
   func dateSelection(_: UICalendarSelectionSingleDate, didSelectDate component: DateComponents?) {
     guard let component else {
       return

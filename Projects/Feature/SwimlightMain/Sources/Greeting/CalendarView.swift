@@ -75,7 +75,10 @@ struct SLCalendarView: UIViewControllerRepresentable {
   func makeUIViewController(context _: Context) -> SLCalendarViewController {
     let vc = SLCalendarViewController()
     vc.calendarView.delegate = calendarDelegate
-    vc.calendarView.selectionBehavior = UICalendarSelectionSingleDate(delegate: singleSelectDelegate)
+
+    let dateSelection = UICalendarSelectionSingleDate(delegate: singleSelectDelegate)
+    vc.calendarView.selectionBehavior = dateSelection
+    dateSelection.selectedDate = Calendar(identifier: .gregorian).dateComponents([.calendar, .year, .month, .day], from: .now)
     return vc
   }
 

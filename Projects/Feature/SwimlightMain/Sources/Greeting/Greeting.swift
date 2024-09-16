@@ -59,7 +59,6 @@ struct Greeting {
   }
 
   private func determineHealthKitStatus(_ status: HKAuthorizationRequestStatus, send: Send<Greeting.Action>) async {
-    dump(status.rawValue)
     switch status {
     case .shouldRequest:
       await send(.healthKitRequest)
