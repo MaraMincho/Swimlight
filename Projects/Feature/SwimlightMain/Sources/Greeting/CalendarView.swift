@@ -49,7 +49,7 @@ final class SLCalendarViewController: UIViewController {
     dateFormatter.dateFormat = "yyyy-MM-dd"
     let dateString = dateFormatter.string(from: .now)
     let components = dateString.split(separator: "-").map { Int($0) ?? 0 }
-    
+
     return DateComponents(
       calendar: gregorianCalendar,
       year: components[safe: 0],

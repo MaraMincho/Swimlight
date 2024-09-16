@@ -12,6 +12,7 @@ let project = Project.makeModule(
   name: "Swimlight",
   targets: .app(
     name: "Swimlight",
+    entitlements: .file(path: "Swimlight.entitlements"),
     dependencies: [
       .external(name: "ComposableArchitecture", condition: .none),
       .feature(.SwimlightMain),

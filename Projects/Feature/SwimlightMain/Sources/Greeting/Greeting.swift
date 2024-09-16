@@ -32,8 +32,9 @@ struct Greeting {
     case let .selectedDate(dateComponents):
       return .changeCalendarSelection(dateComponents)
     }
-    return .detail(.dismiss)
   }
+
+  @Dependency(\.healthKitManager) var healthKitManager
 
   var body: some Reducer<State, Action> {
     Reduce { state, action in
@@ -53,7 +54,9 @@ struct Greeting {
         )
 
       case .tappedDetailButton:
-        state.detail = .init()
+        let isAvaiable = healthKitManager.isHealthDataAvailable()
+        print("가능 ? \(isAvaiable)")
+//        state.detail = .init()
         return .none
 
       case let .changeCalendarSelection(component):
