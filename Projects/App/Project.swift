@@ -16,6 +16,10 @@ let project = Project.makeModule(
     dependencies: [
       .external(name: "ComposableArchitecture", condition: .none),
       .feature(.SwimlightMain),
+    ],
+    infoPlist: [
+      "NSHealthShareUsageDescription": "Read heart rate monitor data.",
+      "NSHealthUpdateUsageDescription": "Share workout data with other apps.",
     ]
   )
 )

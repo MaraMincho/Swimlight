@@ -55,9 +55,11 @@ struct Greeting {
 
       case .tappedDetailButton:
         let isAvaiable = healthKitManager.isHealthDataAvailable()
-        print("가능 ? \(isAvaiable)")
-//        state.detail = .init()
-        return .none
+
+        return .run { _ in
+          try await healthKitManager.requestAuthorization()
+          try await SLHealthKitManager.readWorkouts()
+        }
 
       case let .changeCalendarSelection(component):
         return .none

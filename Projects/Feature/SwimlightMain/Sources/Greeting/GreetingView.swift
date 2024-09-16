@@ -6,6 +6,7 @@
 //  Copyright © 2024 com.swimlight. All rights reserved.
 //
 import ComposableArchitecture
+import HealthKitUI
 import SwiftUI
 
 struct GreetingView: View {
@@ -13,6 +14,8 @@ struct GreetingView: View {
 
   @Bindable
   var store: StoreOf<Greeting>
+  @State
+  var trigger: Bool = false
 
   // MARK: Init
 
