@@ -24,9 +24,29 @@ struct GreetingView: View {
 
   @ViewBuilder
   private func makeContentView() -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      makeTopGreetingView()
+      makeCalendarView()
+      makeBottomGreetingView()
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.horizontal, Metrics.horizontalSpacing)
+  }
+
+  // TODO: 오늘 수영했으면 멘트 바꾸기
+  @ViewBuilder
+  private func makeTopGreetingView() -> some View {
+    Text("안녕하세요\n오늘도 즐거운 수영 되세요")
+      .foregroundStyle(.black)
+      .font(Font.pretendard(.regular, size: 18))
+      .foregroundStyle(SLColor.primaryText.color)
+  }
+
+  @ViewBuilder
+  private func makeCalendarView() -> some View {
+    let buttonTitle = "눌러용"
+    let isDisable = false
     VStack(spacing: 6) {
-      Text("안녕하세요\n오늘도 즐거운 수영 되세요")
-        .foregroundStyle(.black)
       SLCalendarView()
         .frame(maxWidth: .infinity, idealHeight: 450)
         .preferredColorScheme(.light)
@@ -34,11 +54,39 @@ struct GreetingView: View {
       Button {
         store.send(.tappedDetailButton)
       } label: {
-        Text("눌러 ")
+        Text(buttonTitle)
           .foregroundStyle(.black)
+          .padding(.vertical, 12)
+          .frame(maxWidth: .infinity)
+          .background(isDisable ? SLColor.gray01.color : SLColor.main01.color)
+          .clipShape(RoundedRectangle(cornerRadius: 4))
       }
     }
-    .frame(maxWidth: .infinity)
+    .padding(.vertical, 6)
+    .clipShape(RoundedRectangle(cornerRadius: 6))
+    .background(Color.main03.opacity(0.5))
+  }
+
+  @ViewBuilder
+  private func makeBottomGreetingView() -> some View {
+    VStack(alignment: .leading, spacing: Metrics.titleAndDescriptionSpading) {
+      // Title
+      Text("스트릭")
+        .foregroundStyle(SLColor.primaryText.color)
+        .font(.pretendard(.bold, size: 24))
+
+      HStack(alignment: .center, spacing: 0) {
+        // TODO: 멘트 배꾸기
+        Text("오늘 수영하면 벌써 ")
+          .foregroundStyle(SLColor.primaryText.color)
+          .font(.pretendard(.bold, size: 18))
+
+        // TODO: 멘트 바꾸기
+        Text("10일")
+          .foregroundStyle(SLColor.main01.color)
+          .font(.pretendard(.bold, size: 20))
+      }
+    }
   }
 
   var body: some View {
@@ -48,6 +96,7 @@ struct GreetingView: View {
       ScrollView {
         makeContentView()
       }
+      .safeAreaPadding(.top, 55)
     }
     .navigationBarBackButtonHidden()
     .onAppear {
@@ -59,9 +108,8 @@ struct GreetingView: View {
   }
 
   private enum Metrics {
-    static let TextTopSpacing: CGFloat = 82
-    static let TextAndLogoSpacing: CGFloat = 60
-    static let logoHorizontalSpacing: CGFloat = 50
+    static let horizontalSpacing: CGFloat = 16
+    static let titleAndDescriptionSpading: CGFloat = 20
   }
 
   private enum Constants {}
