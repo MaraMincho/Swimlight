@@ -9,6 +9,7 @@
 import Dependencies
 import Foundation
 import HealthKit
+import UIKit
 
 // MARK: - SLHealthKitManager
 
@@ -19,9 +20,30 @@ struct SLHealthKitManager {
     HKHealthStore.isHealthDataAvailable()
   }
 
-  var authorizationStatus: (_ for: HKObjectType) -> HKAuthorizationStatus
-  private static func _authorizationStatus(type: HKObjectType) -> HKAuthorizationStatus {
-    return store.authorizationStatus(for: type)
+  var authorizationStatus: () async throws -> HKAuthorizationRequestStatus
+  private static func _authorizationStatus() async throws -> HKAuthorizationRequestStatus {
+    // MARK: - is only for write mode, so you make another logic
+
+    let typesToShare: [HKWorkoutType] = []
+
+    let typesToRead: [HKObjectType] = [
+      .workoutType(),
+      HKQuantityType(.heartRate),
+      HKQuantityType(.walkingHeartRateAverage),
+      HKQuantityType(.activeEnergyBurned),
+      .activitySummaryType(),
+      HKQuantityType(.swimmingStrokeCount),
+      HKQuantityType(.distanceSwimming),
+    ]
+
+    return try await withCheckedThrowingContinuation { continuation in
+      store.getRequestStatusForAuthorization(toShare: .init(typesToShare), read: .init(typesToRead)) { status, error in
+        if let error {
+          continuation.resume(throwing: error)
+        }
+        continuation.resume(returning: status)
+      }
+    }
   }
 
   var requestAuthorization: () async throws -> Void
@@ -35,7 +57,7 @@ struct SLHealthKitManager {
       HKQuantityType(.heartRate),
       HKQuantityType(.walkingHeartRateAverage),
       HKQuantityType(.activeEnergyBurned),
-      HKObjectType.activitySummaryType(),
+      .activitySummaryType(),
       HKQuantityType(.swimmingStrokeCount),
       HKQuantityType(.distanceSwimming),
     ]
@@ -46,14 +68,17 @@ struct SLHealthKitManager {
   static func readWorkouts() async throws -> [HKQuantitySample]? {
     let workoutPredicate = HKQuery.predicateForWorkouts(with: .swimming)
 
+    let datePredicate = HKQuery.predicateForSamples(withStart: .now.addingTimeInterval(-(60 * 60 * 24 * 10)), end: .now, options: .strictStartDate)
+
     // 두 가지 조건을 AND로 결합
-    let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [workoutPredicate])
+    let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+    ])
 
     let samples = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKSample], Error>) in
       store.execute(
         HKSampleQuery(
           sampleType: HKQuantityType(.heartRate),
-          predicate: nil,
+          predicate: datePredicate,
           limit: Int(HKObjectQueryNoLimit),
           sortDescriptors: [.init(keyPath: \HKSample.startDate, ascending: false)],
           resultsHandler: { _, samples, error in
@@ -77,30 +102,10 @@ struct SLHealthKitManager {
     }
 
     workouts.forEach { workout in
-      print(workout.quantity, workout.quantityType, workout.startDate, workout.endDate)
+      let heartRateUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
+      print(Int(workout.quantity.doubleValue(for: heartRateUnit)), workout.quantityType, workout.startDate, workout.endDate)
     }
     return workouts
-  }
-
-  static func test() async throws {
-    // Get the start and end date components.
-    let calendar = Calendar(identifier: .gregorian)
-
-    var startComponents = calendar.dateComponents([.calendar, .day, .month, .year], from: Date())
-    startComponents.calendar = calendar
-
-    var endComponents = startComponents
-    endComponents.calendar = calendar
-    endComponents.day = 1 + (endComponents.day ?? 0)
-
-    // Create a predicate for the query.
-    let today = HKQuery.predicate(forActivitySummariesBetweenStart: startComponents, end: endComponents)
-
-    // Create the descriptor.
-    let activeSummaryDescriptor = HKActivitySummaryQueryDescriptor(predicate: today)
-
-    // Run the query.
-    let results = try await activeSummaryDescriptor.results(for: store)
   }
 }
 

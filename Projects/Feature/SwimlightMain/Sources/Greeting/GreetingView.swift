@@ -113,6 +113,18 @@ struct GreetingView: View {
     .sheet(item: $store.scope(state: \.detail, action: \.detail)) { store in
       SwimDetailView(store: store)
     }
+    .alert($store.scope(state: \.alert, action: \.alert))
+    .onChange(of: store.openSettings) { _, _ in
+      openHealthApp()
+    }
+  }
+
+  private func openHealthApp() {
+    if let url = URL(string: "x-apple-health://") {
+      if UIApplication.shared.canOpenURL(url) {
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+      }
+    }
   }
 
   private enum Metrics {
