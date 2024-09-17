@@ -22,7 +22,15 @@ struct Greeting {
     @Shared(.fileStorage(swimDataStorageURL)) var swimDataStorage: [Date] = []
     var openSettings: UUID = .init()
     var calendarViewID: UUID = .init()
-    var buttonTitle: String = ""
+    var buttonTitle: String {
+      dateFormatter.string(from: selectedDate) + " 리포트 보러 가기"
+    }
+
+    var selectedDate: Date = .now
+    var isDetailReportExist: Bool {
+      calendarDelegate.containDate(selectedDate)
+    }
+
     init() {}
   }
 
@@ -103,11 +111,13 @@ struct Greeting {
         return .none
 
       case let .changeCalendarSelection(component):
-        state.buttonTitle = component.description
+        if let date = component.date {
+          state.selectedDate = date
+        }
         return .none
 
       case .detail:
-        state.detail = .init()
+        state.detail = .init(targetDate: state.selectedDate)
         return .none
 
       case .healthKitRequest:
@@ -143,3 +153,9 @@ struct Greeting {
 extension Reducer where Self.State == Greeting.State, Self.Action == Greeting.Action {}
 
 private let swimDataStorageURL = URL.documentsDirectory.appending(component: "SwimWorkoutDatas.json")
+
+private let dateFormatter: DateFormatter = {
+  let formatter = DateFormatter()
+  formatter.dateFormat = "MMM dd일 "
+  return formatter
+}()

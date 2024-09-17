@@ -10,6 +10,7 @@ import Combine
 import UIKit
 
 final class SLCalendarDelegate: NSObject, UICalendarViewDelegate, UICalendarSelectionSingleDateDelegate {
+  fileprivate let calendar = Calendar(identifier: .gregorian)
   var swimWorkoutDates: Set<Date> = .init()
   override init() {
     super.init()
@@ -54,9 +55,14 @@ final class SLCalendarDelegate: NSObject, UICalendarViewDelegate, UICalendarSele
   }
 
   func updateSwimWorkoutDates(_ dates: [Date]) {
-    let calendar = Calendar(identifier: .gregorian)
-
     let componentDates = dates.compactMap { calendar.dateComponents([.calendar, .year, .month, .day], from: $0).date }
     swimWorkoutDates = .init(componentDates)
+  }
+
+  func containDate(_ date: Date) -> Bool {
+    guard let componentDate = calendar.dateComponents([.calendar, .year, .month, .day], from: date).date else {
+      return false
+    }
+    return swimWorkoutDates.contains(componentDate)
   }
 }

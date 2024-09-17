@@ -48,7 +48,7 @@ struct GreetingView: View {
   @ViewBuilder
   private func makeCalendarView() -> some View {
     let buttonTitle = store.buttonTitle
-    let isDisable = false
+    let isDisable = !store.isDetailReportExist
     VStack(spacing: 6) {
       SLCalendarView(
         calendarDelegate: store.calendarDelegate,
@@ -65,7 +65,7 @@ struct GreetingView: View {
           .foregroundStyle(.black)
           .padding(.vertical, 12)
           .frame(maxWidth: .infinity)
-          .background(isDisable ? SLColor.gray01.color : SLColor.main01.color)
+          .background(isDisable ? SLColor.gray03.color : SLColor.main01.color)
           .clipShape(RoundedRectangle(cornerRadius: 4))
       }
       .padding(.horizontal, 4)

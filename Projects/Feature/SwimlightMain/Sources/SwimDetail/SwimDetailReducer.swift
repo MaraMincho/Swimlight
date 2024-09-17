@@ -12,7 +12,11 @@ import Foundation
 @Reducer
 struct SwimDetailReducer {
   struct State: Equatable {
-    fileprivate var onAppear: Bool = false
+    var onAppear: Bool = false
+    var targetDate: Date
+    init(targetDate: Date) {
+      self.targetDate = targetDate
+    }
   }
 
   enum Action: Equatable {
