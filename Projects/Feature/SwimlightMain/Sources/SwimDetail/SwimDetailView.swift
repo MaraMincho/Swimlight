@@ -17,13 +17,14 @@ struct SwimDetailView: View {
 
   @ViewBuilder
   private func makeContent() -> some View {
-    VStack(alignment: .leading, spacing: 20) {
+    VStack(alignment: .leading, spacing: 40) {
       makeTitleLabel()
+        .padding(.horizontal, 16)
       ScrollView {
         makeScrollContentView()
       }
     }
-    .safeAreaPadding(.top, 20)
+    .padding(.top, 20)
   }
 
   @ViewBuilder
@@ -62,17 +63,18 @@ struct SwimDetailView: View {
     VStack(alignment: .leading, spacing: 9) {
       Text(topLabel)
         .foregroundStyle(SLColor.primaryText.color)
-        .font(.pretendard(.regular, size: 18))
+        .font(.pretendard(.bold, size: 18))
 
       Text(middleLabel)
         .foregroundStyle(SLColor.main01.color)
-        .font(.pretendard(.regular, size: 24))
+        .font(.pretendard(.bold, size: 24))
 
       Spacer()
 
       Text(capsuleLabel)
         .foregroundStyle(Color.white)
-        .font(.pretendard(.regular, size: 12))
+        .font(.pretendard(.bold, size: 12))
+        .padding(.vertical, 6)
         .padding(.horizontal, 12)
         .background(Color.primaryText)
         .clipShape(Capsule())

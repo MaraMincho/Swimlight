@@ -16,7 +16,7 @@ struct SwimDetailReducer {
   @ObservableState
   struct State: Equatable {
     var onAppear: Bool = false
-    private let targetDate: Date
+    fileprivate let targetDate: Date
     var titleLabel: String {
       dateFormatter.string(from: targetDate) + " 수영 리포트"
     }
@@ -30,6 +30,8 @@ struct SwimDetailReducer {
     case onAppear(Bool)
   }
 
+  @Dependency(\.healthKitManager) var healthKitManager
+
   var body: some ReducerOf<Self> {
     Reduce { state, action in
       switch action {
@@ -37,8 +39,13 @@ struct SwimDetailReducer {
         if state.onAppear {
           return .none
         }
+
         state.onAppear = val
-        return .none
+        return .run { [targetDate = state.targetDate] _ in
+          let averageSeconds = try await healthKitManager.readMonthWorkoutAverageSeconds(targetDate)
+          let targetDateSeconds = try await healthKitManager.readTargetDateWorkoutSeconds(targetDate)
+          print(averageSeconds, targetDateSeconds)
+        }
       }
     }
   }
