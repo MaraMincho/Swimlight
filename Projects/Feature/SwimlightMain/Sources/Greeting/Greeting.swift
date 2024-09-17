@@ -19,7 +19,10 @@ struct Greeting {
     @Presents var detail: SwimDetailReducer.State?
     var calendarDelegate: SLCalendarDelegate = .init()
     @Presents var alert: AlertState<Action.Alert>?
+    @Shared(.fileStorage(swimDataStorageURL)) var swimDataStorage: [Date] = []
     var openSettings: UUID = .init()
+    var calendarViewID: UUID = .init()
+    var buttonTitle: String = ""
     init() {}
   }
 
@@ -31,6 +34,7 @@ struct Greeting {
     case healthKitRequest
     case showAlert
     case alert(PresentationAction<Alert>)
+    case updateSwimWorkoutDates([Date])
 
     enum Alert: Equatable {
       case tappedConfirmButton
@@ -83,7 +87,9 @@ struct Greeting {
           .run { send in
             let status = try await healthKitManager.authorizationStatus()
             await determineHealthKitStatus(status, send: send)
-            try await healthKitManager.readSwimWorkouts()
+            let workouts = try await healthKitManager.readSwimWorkouts()
+            let workoutsDate = workouts.map(\.startDate).uniqued()
+            await send(.updateSwimWorkoutDates(workoutsDate))
           },
           .publisher {
             state
@@ -97,6 +103,7 @@ struct Greeting {
         return .none
 
       case let .changeCalendarSelection(component):
+        state.buttonTitle = component.description
         return .none
 
       case .detail:
@@ -107,6 +114,12 @@ struct Greeting {
         return .run { _ in
           try await healthKitManager.requestAuthorization()
         }
+
+      case let .updateSwimWorkoutDates(dates):
+        state.swimDataStorage = dates
+        state.calendarDelegate.updateSwimWorkoutDates(dates)
+        state.calendarViewID = .init()
+        return .none
 
       case .showAlert:
         state.alert = makeAlertState()
@@ -128,3 +141,5 @@ struct Greeting {
 }
 
 extension Reducer where Self.State == Greeting.State, Self.Action == Greeting.Action {}
+
+private let swimDataStorageURL = URL.documentsDirectory.appending(component: "SwimWorkoutDatas.json")

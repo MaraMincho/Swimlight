@@ -93,7 +93,6 @@ struct SLHealthKitManager {
               return
             }
 
-            print(samples)
             guard let samples else {
               print("*** Invalid State: This can only fail if there was an error. ***")
               continuation.resume(throwing: NSError())
@@ -109,9 +108,6 @@ struct SLHealthKitManager {
     guard let workouts = samples as? [HKWorkout] else {
       return []
     }
-    let dateFormatter = DateFormatter()
-    dateFormatter.dateFormat = "yyyy-MM-dd, hh-mm-ss"
-    workouts.forEach { print(dateFormatter.string(from: $0.startDate)) }
     return workouts
   }
 

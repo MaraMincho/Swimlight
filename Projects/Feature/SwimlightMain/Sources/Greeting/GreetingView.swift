@@ -47,7 +47,7 @@ struct GreetingView: View {
 
   @ViewBuilder
   private func makeCalendarView() -> some View {
-    let buttonTitle = "눌러용"
+    let buttonTitle = store.buttonTitle
     let isDisable = false
     VStack(spacing: 6) {
       SLCalendarView(
@@ -73,6 +73,7 @@ struct GreetingView: View {
     .padding(.vertical, 6)
     .clipShape(RoundedRectangle(cornerRadius: 6))
     .background(Color.main03.opacity(0.2))
+    .id(store.calendarViewID)
   }
 
   @ViewBuilder
