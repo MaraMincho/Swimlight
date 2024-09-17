@@ -9,11 +9,18 @@
 import ComposableArchitecture
 import Foundation
 
+// MARK: - SwimDetailReducer
+
 @Reducer
 struct SwimDetailReducer {
+  @ObservableState
   struct State: Equatable {
     var onAppear: Bool = false
-    var targetDate: Date
+    private let targetDate: Date
+    var titleLabel: String {
+      dateFormatter.string(from: targetDate) + " 수영 리포트"
+    }
+
     init(targetDate: Date) {
       self.targetDate = targetDate
     }
@@ -36,3 +43,9 @@ struct SwimDetailReducer {
     }
   }
 }
+
+private let dateFormatter: DateFormatter = {
+  let formatter = DateFormatter()
+  formatter.dateFormat = "MMM dd일"
+  return formatter
+}()

@@ -108,6 +108,7 @@ struct Greeting {
         )
 
       case .tappedDetailButton:
+        state.detail = .init(targetDate: state.selectedDate)
         return .none
 
       case let .changeCalendarSelection(component):
@@ -117,7 +118,6 @@ struct Greeting {
         return .none
 
       case .detail:
-        state.detail = .init(targetDate: state.selectedDate)
         return .none
 
       case .healthKitRequest:
@@ -156,6 +156,6 @@ private let swimDataStorageURL = URL.documentsDirectory.appending(component: "Sw
 
 private let dateFormatter: DateFormatter = {
   let formatter = DateFormatter()
-  formatter.dateFormat = "MMM dd일 "
+  formatter.dateFormat = "MMM dd일"
   return formatter
 }()
