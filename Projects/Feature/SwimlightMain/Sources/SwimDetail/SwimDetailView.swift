@@ -46,7 +46,7 @@ struct SwimDetailView: View {
     VStack(alignment: .leading, spacing: 12) {
       makeCardTitleView(Constants.MonthDifferenceTitle)
       HStack(spacing: 9) {
-        makeHalfCardTitle(topLabel: "운동 시간", middleLabel: "45분 03초 ", capsuleLabel: "+6%")
+        makeHalfCardTitle(topLabel: "운동 시간", middleLabel: store.workoutSecondsLabel, capsuleLabel: store.workoutCapshuleLabel)
 
         makeHalfCardTitle(topLabel: "운동 시간", middleLabel: "45분 03초 ", capsuleLabel: "+6%")
       }
