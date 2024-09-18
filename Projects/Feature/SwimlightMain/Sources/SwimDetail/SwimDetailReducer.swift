@@ -106,6 +106,9 @@ struct SwimDetailReducer {
               let heartRateZone = try await healthKitManager.calculateTimeInHeartRateZones(targetDate)
               await send(.updateHeartRateZone(heartRateZone))
             }
+            taskGroup.addTask {
+              try await healthKitManager.getStrokeStyleDistance(targetDate)
+            }
           }
         }
       case let .updateWorkoutDuration(seconds, monthSecondsAverage):

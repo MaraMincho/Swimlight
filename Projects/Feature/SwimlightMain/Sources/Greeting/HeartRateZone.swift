@@ -31,7 +31,6 @@ final class HeartRateZoneManager {
       prevMinimumHeartRate = maximumHeartRateByZone + 1
       res[zone] = currentHeartRateRange
     }
-    print(res)
     heartRateZoneRange = res
   }
 
