@@ -95,7 +95,8 @@ struct SwimDetailReducer {
               try await send(.updateWorkoutDistance(distance: targetDateDistance, monthDistanceAverage: averageDistance))
             }
             taskGroup.addTask {
-              try await healthKitManager.calculateTimeInHeartRateZones(targetDate)
+              let heartRateSample = try await healthKitManager.getHeartRateSamples(targetDate)
+              dump(heartRateSample)
             }
           }
         }
@@ -119,7 +120,7 @@ private let dateFormatter: DateFormatter = {
   return formatter
 }()
 
-private func formatTimeIntervalToHMS(_ timeInterval: Int) -> (hours: Int, minutes: Int, seconds: Int) {
+func formatTimeIntervalToHMS(_ timeInterval: Int) -> (hours: Int, minutes: Int, seconds: Int) {
   // 총 시간을 초 단위로 받아온 뒤 각 단위로 변환
   let hours = timeInterval / 3600
   let minutes = (timeInterval % 3600) / 60
