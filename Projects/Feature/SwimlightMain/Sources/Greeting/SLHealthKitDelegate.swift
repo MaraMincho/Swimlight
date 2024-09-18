@@ -373,6 +373,7 @@ struct SLHealthKitManager {
       .reduce(0) { $0 + $1 }
 
     var countOfCheckedHeartRate = 0
+    var xValueWeight: Double = 0
     let heartRateWeightSum = samples
       .map { samples in
         var prevDate: Date? = nil
@@ -388,8 +389,9 @@ struct SLHealthKitManager {
 
           countOfCheckedHeartRate += 1
           currentHeartRateWeightSum += Int(currentHeartRate * interval)
-          items.append(.init(interval: interval, y: Int(currentHeartRate)))
+          items.append(.init(interval: xValueWeight + interval, y: Int(currentHeartRate)))
 
+          xValueWeight += interval
           prevDate = sample.startDate
         }
         return currentHeartRateWeightSum
@@ -445,7 +447,7 @@ struct SLHealthKitManager {
 
 // MARK: - HeartRateChartProperty
 
-struct HeartRateChartProperty {
+struct HeartRateChartProperty: Equatable {
   let totalHour: Int
   let totalMinute: Int
   let averageHeartRate: Int
@@ -456,7 +458,9 @@ struct HeartRateChartProperty {
 
 // MARK: - HeartRateChartElement
 
-struct HeartRateChartElement {
+struct HeartRateChartElement: Equatable, Identifiable {
+  var id: Double { interval }
+
   let interval: Double
   let y: Int
 }

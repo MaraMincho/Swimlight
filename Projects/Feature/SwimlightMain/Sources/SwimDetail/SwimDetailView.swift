@@ -6,6 +6,7 @@
 //  Copyright © 2024 com.swimlight. All rights reserved.
 //
 
+import Charts
 import ComposableArchitecture
 import SwiftUI
 
@@ -38,6 +39,7 @@ struct SwimDetailView: View {
   private func makeScrollContentView() -> some View {
     VStack(spacing: 40) {
       makeMonthDifferenceView()
+      makeHeartRateChartView()
     }
   }
 
@@ -52,6 +54,61 @@ struct SwimDetailView: View {
       }
     }
     .padding(.horizontal, 16)
+  }
+
+  @ViewBuilder
+  private func makeHeartRateChartView() -> some View {
+    if let chartProperty = store.chartProperty {
+      let range = (chartProperty.minimumHeartRate - 10) ... (chartProperty.maximumHeartRate + 10)
+      VStack(alignment: .leading, spacing: 12) {
+        makeCardTitleView("심박수")
+
+        HStack(spacing: 0) {
+          Text("평균 심박수")
+            .foregroundStyle(SLColor.primaryText.color)
+            .font(.pretendard(.bold, size: 22))
+
+          Spacer()
+
+          Text(chartProperty.maximumHeartRate.description + "BPM")
+            .foregroundStyle(SLColor.main01.color)
+            .font(.pretendard(.bold, size: 22))
+        }
+        HStack(spacing: 0) {
+          Text("최소 심박수: " + chartProperty.minimumHeartRate.description)
+            .foregroundStyle(SLColor.primaryText.color)
+            .font(.pretendard(.bold, size: 14))
+
+          Spacer()
+
+          Text("최대 심박수: " + chartProperty.maximumHeartRate.description)
+            .foregroundStyle(SLColor.primaryText.color)
+            .font(.pretendard(.bold, size: 14))
+        }
+
+        Chart(chartProperty.items) { item in
+          LineMark(
+            x: .value("Time", item.interval),
+            y: .value("HeartRate", item.y)
+          )
+        }
+        .chartYScale(domain: range)
+        .chartYAxis(.hidden)
+        .chartXAxis(.hidden)
+        .chartLegend(.hidden)
+        .foregroundStyle(SLColor.main01.color)
+        .frame(idealHeight: 350)
+        .background(Color.white)
+
+        Text(chartProperty.totalHour.description + "H" + chartProperty.totalMinute.description + "M")
+          .foregroundStyle(SLColor.primaryText.color)
+          .font(.pretendard(.bold, size: 22))
+          .frame(maxWidth: .infinity, alignment: .trailing)
+      }
+      .padding(.all, 12)
+      .makeSLCardShadow()
+      .padding(.horizontal, 16)
+    }
   }
 
   @ViewBuilder
