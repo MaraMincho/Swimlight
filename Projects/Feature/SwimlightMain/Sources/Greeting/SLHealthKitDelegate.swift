@@ -29,7 +29,6 @@ struct SLHealthKitManager {
     let typesToRead: [HKObjectType] = [
       .workoutType(),
       HKQuantityType(.heartRate),
-      HKQuantityType(.walkingHeartRateAverage),
       HKQuantityType(.activeEnergyBurned),
       .activitySummaryType(),
       HKQuantityType(.swimmingStrokeCount),
@@ -412,20 +411,15 @@ struct SLHealthKitManager {
 
   var getStrokeStyleDistance: (_ date: Date) async throws -> [SLStrokeStyle: Int]
   private static func _getStrokeStyleDistance(_ targetDate: Date) async throws -> [SLStrokeStyle: Int] {
-    let workoutPredicate = HKQuery.predicateForWorkouts(with: .swimming)
     let (startDate, endDate) = startAndEndOfDay(for: targetDate)
-
     let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
-
     let swimWorkoutPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-      workoutPredicate,
       datePredicate,
     ])
-
     let workoutSamples = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKSample], Error>) in
       store.execute(
         HKSampleQuery(
-          sampleType: .workoutType(),
+          sampleType: HKQuantityType(.swimmingStrokeCount),
           predicate: swimWorkoutPredicate,
           limit: HKObjectQueryNoLimit,
           sortDescriptors: [.init(keyPath: \HKSample.startDate, ascending: false)],
@@ -444,22 +438,14 @@ struct SLHealthKitManager {
       )
     }
 
-    guard let workouts = workoutSamples as? [HKWorkout] else {
-      throw NSError() // 예상치 못한 경우 예외 처리
-    }
-
-    // 수영 스타일별로 거리를 저장할 딕셔너리 생성
     var distanceByStrokeStyle: [SLStrokeStyle: Int] = [:]
-
-    // 각 운동에 대해 수영 스타일과 관련된 거리 계산
-    for workout in workouts {
-      if let strokeStyleRaw = workout.metadata?[HKMetadataKeySwimmingStrokeStyle] as? Int,
-         let strokeStyle = SLStrokeStyle(rawValue: strokeStyleRaw) {
-        let distance = Int(workout.totalDistance?.doubleValue(for: .meter()) ?? 0)
-        distanceByStrokeStyle[strokeStyle, default: 0] += distance
+    workoutSamples.forEach { sample in
+      let type = sample as? HKQuantitySample
+      if let strokeStyleInt = sample.metadata?["HKSwimmingStrokeStyle"] as? Int,
+         let strokeStyle = SLStrokeStyle(rawValue: strokeStyleInt) {
+        distanceByStrokeStyle[strokeStyle, default: 0] += 50
       }
     }
-
     return distanceByStrokeStyle
   }
 
