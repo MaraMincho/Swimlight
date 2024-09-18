@@ -416,6 +416,32 @@ struct SLHealthKitManager {
     let swimWorkoutPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
       datePredicate,
     ])
+    let distances = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKSample], Error>) in
+      store.execute(
+        HKSampleQuery(
+          sampleType: HKQuantityType(.distanceSwimming),
+          predicate: swimWorkoutPredicate,
+          limit: HKObjectQueryNoLimit,
+          sortDescriptors: [.init(keyPath: \HKSample.startDate, ascending: false)],
+          resultsHandler: { _, samples, error in
+            if let hasError = error {
+              continuation.resume(throwing: hasError)
+              return
+            }
+            guard let samples else {
+              continuation.resume(throwing: NSError())
+              return
+            }
+            continuation.resume(returning: samples)
+          }
+        )
+      )
+    }
+    guard let distance = distances.first as? HKQuantitySample else {
+      return [:]
+    }
+    let targetDistance = Int(distance.quantity.doubleValue(for: .meter()))
+
     let workoutSamples = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKSample], Error>) in
       store.execute(
         HKSampleQuery(
@@ -443,7 +469,7 @@ struct SLHealthKitManager {
       let type = sample as? HKQuantitySample
       if let strokeStyleInt = sample.metadata?["HKSwimmingStrokeStyle"] as? Int,
          let strokeStyle = SLStrokeStyle(rawValue: strokeStyleInt) {
-        distanceByStrokeStyle[strokeStyle, default: 0] += 50
+        distanceByStrokeStyle[strokeStyle, default: 0] += targetDistance
       }
     }
     return distanceByStrokeStyle

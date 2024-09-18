@@ -24,6 +24,7 @@ struct SwimDetailView: View {
       ScrollView {
         makeScrollContentView()
       }
+      .safeAreaPadding(.bottom, 20)
     }
     .padding(.top, 20)
   }
@@ -41,6 +42,7 @@ struct SwimDetailView: View {
       makeMonthDifferenceView()
       makeHeartRateChartView()
       makeZoneChartView()
+      makeStrokeStyleView()
     }
   }
 
@@ -135,6 +137,35 @@ struct SwimDetailView: View {
               trailingLabel: trailingTitle,
               widthRatio: ratio
             )
+          }
+        }
+        .padding(.all, 12)
+        .makeSLCardShadow()
+      }
+      .padding(.horizontal, 16)
+    }
+  }
+
+  @ViewBuilder
+  private func makeStrokeStyleView() -> some View {
+    let items = store.strokeStylesAndMeter.sorted(by: { $0.key.rawValue < $1.key.rawValue }).filter { [2, 3, 4, 5].contains($0.key.rawValue) }
+
+    if !items.isEmpty {
+      let leftoverMeter = store.workoutDistance - items.reduce(0) { $0 + $1.value }
+      VStack(alignment: .leading, spacing: 12) {
+        makeCardTitleView("수영 상세")
+        VStack(alignment: .leading, spacing: 12) {
+          ForEach(items, id: \.key.rawValue) { item in
+            HStack(alignment: .center, spacing: 0) {
+              Text(item.key.description())
+              Spacer()
+              Text(item.value.description + "M")
+            }
+          }
+          HStack(alignment: .center, spacing: 0) {
+            Text("기타")
+            Spacer()
+            Text(leftoverMeter.description + "M")
           }
         }
         .padding(.all, 12)
