@@ -46,9 +46,9 @@ struct SwimDetailView: View {
     VStack(alignment: .leading, spacing: 12) {
       makeCardTitleView(Constants.MonthDifferenceTitle)
       HStack(spacing: 9) {
-        makeHalfCardTitle(topLabel: "운동 시간", middleLabel: store.workoutSecondsLabel, capsuleLabel: store.workoutCapshuleLabel)
+        makeHalfCardTitle(topLabel: "운동 시간", middleLabel: store.workoutSecondsLabel, capsuleLabel: store.workoutSecondsCapsuleLabel)
 
-        makeHalfCardTitle(topLabel: "운동 시간", middleLabel: "45분 03초 ", capsuleLabel: "+6%")
+        makeHalfCardTitle(topLabel: "운동 거리", middleLabel: store.workoutDistanceLabel, capsuleLabel: store.workoutDistanceCapsuleLabel)
       }
     }
     .padding(.horizontal, 16)
@@ -68,6 +68,8 @@ struct SwimDetailView: View {
       Text(middleLabel)
         .foregroundStyle(SLColor.main01.color)
         .font(.pretendard(.bold, size: 24))
+        .lineLimit(1)
+        .minimumScaleFactor(0.4)
 
       Spacer()
 
@@ -79,8 +81,7 @@ struct SwimDetailView: View {
         .background(Color.primaryText)
         .clipShape(Capsule())
     }
-    .padding(.leading, 12)
-    .padding(.vertical, 12)
+    .padding(.all, 12)
     .frame(maxWidth: .infinity, alignment: .leading)
     .makeSLCardShadow()
   }

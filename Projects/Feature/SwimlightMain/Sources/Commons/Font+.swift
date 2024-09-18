@@ -26,6 +26,10 @@ public extension Font {
     .custom(type.fontTitle, size: size)
   }
 
+  static func pretendard(_ type: FontType, size: CGFloat, relativeTo: TextStyle) -> Font {
+    .custom(type.fontTitle, size: size, relativeTo: relativeTo)
+  }
+
   enum FontType: Equatable {
     case bold
     case regular

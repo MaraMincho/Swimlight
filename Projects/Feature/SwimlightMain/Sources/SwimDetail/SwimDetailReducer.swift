@@ -19,6 +19,15 @@ struct SwimDetailReducer {
     fileprivate let targetDate: Date
     fileprivate var workoutSeconds: Int = 0
     fileprivate var monthAverageSeconds: Int = 0
+    fileprivate var workoutDistance: Int = 0
+    fileprivate var monthAverageDistance: Int = 0
+
+    private let numberFormatter: NumberFormatter = {
+      let formatter = NumberFormatter()
+      formatter.numberStyle = .decimal
+      return formatter
+    }()
+
     var workoutSecondsLabel: String {
       let (h, m, s) = formatTimeIntervalToHMS(workoutSeconds)
       let hourLabel = h != 0 ? "\(h)시간" : ""
@@ -27,12 +36,24 @@ struct SwimDetailReducer {
       return [hourLabel, minuteLabel, secondsLabel].joined(separator: " ")
     }
 
-    var workoutCapshuleLabel: String {
+    var workoutSecondsCapsuleLabel: String {
       if monthAverageSeconds == 0 {
-        return "5%"
+        return ""
       }
       let percentage = Int(Double(workoutSeconds - monthAverageSeconds) / Double(monthAverageSeconds) * 100)
-      return percentage.description + "%"
+      return (percentage > 0 ? "+" : "") + percentage.description + "%"
+    }
+
+    var workoutDistanceLabel: String {
+      (numberFormatter.string(from: workoutDistance as NSNumber) ?? "0") + "m"
+    }
+
+    var workoutDistanceCapsuleLabel: String {
+      if monthAverageDistance == 0 {
+        return ""
+      }
+      let percentage = Int(Double(workoutDistance - monthAverageDistance) / Double(monthAverageDistance) * 100)
+      return (percentage > 0 ? "+" : "") + percentage.description + "%"
     }
 
     var titleLabel: String {
@@ -47,6 +68,7 @@ struct SwimDetailReducer {
   enum Action: Equatable {
     case onAppear(Bool)
     case updateWorkoutDuration(seconds: Int, monthSecondsAverage: Int)
+    case updateWorkoutDistance(distance: Int, monthDistanceAverage: Int)
   }
 
   @Dependency(\.healthKitManager) var healthKitManager
@@ -61,13 +83,27 @@ struct SwimDetailReducer {
 
         state.onAppear = val
         return .run { [targetDate = state.targetDate] send in
-          async let averageSeconds = healthKitManager.readMonthWorkoutAverageSeconds(targetDate)
-          async let targetDateSeconds = healthKitManager.readTargetDateWorkoutSeconds(targetDate)
-          try await send(.updateWorkoutDuration(seconds: targetDateSeconds, monthSecondsAverage: averageSeconds))
+          await withThrowingTaskGroup(of: Void.self) { taskGroup in
+            taskGroup.addTask {
+              async let averageSeconds = healthKitManager.readMonthWorkoutAverageSeconds(targetDate)
+              async let targetDateSeconds = healthKitManager.readTargetDateWorkoutSeconds(targetDate)
+              try await send(.updateWorkoutDuration(seconds: targetDateSeconds, monthSecondsAverage: averageSeconds))
+            }
+            taskGroup.addTask {
+              async let averageDistance = healthKitManager.readMonthWorkoutAverageDistance(targetDate)
+              async let targetDateDistance = healthKitManager.readTargetDateDistance(targetDate)
+              try await send(.updateWorkoutDistance(distance: targetDateDistance, monthDistanceAverage: averageDistance))
+            }
+          }
         }
       case let .updateWorkoutDuration(seconds, monthSecondsAverage):
         state.workoutSeconds = seconds
         state.monthAverageSeconds = monthSecondsAverage
+        return .none
+
+      case let .updateWorkoutDistance(distance, monthDistanceAverage):
+        state.workoutDistance = distance
+        state.monthAverageDistance = monthDistanceAverage
         return .none
       }
     }
