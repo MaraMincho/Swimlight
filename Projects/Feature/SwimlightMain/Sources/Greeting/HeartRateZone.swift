@@ -74,6 +74,21 @@ enum HeartRateZone: Int, Equatable, Hashable, CustomStringConvertible, CaseItera
     }
   }
 
+  var subTitle: String {
+    switch self {
+    case .zone1:
+      "약한 운동"
+    case .zone2:
+      "적절한 운동"
+    case .zone3:
+      "강한 운동"
+    case .zone4:
+      "심한 운동"
+    case .zone5:
+      "최대 심박수 운동"
+    }
+  }
+
   var maximumHeartRatePercentage: Int {
     switch self {
     case .zone1:

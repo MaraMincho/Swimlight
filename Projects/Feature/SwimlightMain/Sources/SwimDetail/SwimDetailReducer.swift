@@ -22,6 +22,7 @@ struct SwimDetailReducer {
     fileprivate var workoutDistance: Int = 0
     fileprivate var monthAverageDistance: Int = 0
     var chartProperty: HeartRateChartProperty? = nil
+    var heartRateZones: [HeartRateZone: TimeInterval] = [:]
 
     private let numberFormatter: NumberFormatter = {
       let formatter = NumberFormatter()
@@ -71,6 +72,7 @@ struct SwimDetailReducer {
     case updateWorkoutDuration(seconds: Int, monthSecondsAverage: Int)
     case updateWorkoutDistance(distance: Int, monthDistanceAverage: Int)
     case updateHeartRateChartProperty(HeartRateChartProperty)
+    case updateHeartRateZone([HeartRateZone: TimeInterval])
   }
 
   @Dependency(\.healthKitManager) var healthKitManager
@@ -100,6 +102,10 @@ struct SwimDetailReducer {
               let chartProperty = try await healthKitManager.getHeartRateSamples(targetDate)
               await send(.updateHeartRateChartProperty(chartProperty))
             }
+            taskGroup.addTask {
+              let heartRateZone = try await healthKitManager.calculateTimeInHeartRateZones(targetDate)
+              await send(.updateHeartRateZone(heartRateZone))
+            }
           }
         }
       case let .updateWorkoutDuration(seconds, monthSecondsAverage):
@@ -114,6 +120,10 @@ struct SwimDetailReducer {
 
       case let .updateHeartRateChartProperty(property):
         state.chartProperty = property
+        return .none
+
+      case let .updateHeartRateZone(zone):
+        state.heartRateZones = zone
         return .none
       }
     }

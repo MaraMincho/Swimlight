@@ -40,6 +40,7 @@ struct SwimDetailView: View {
     VStack(spacing: 40) {
       makeMonthDifferenceView()
       makeHeartRateChartView()
+      makeZoneChartView()
     }
   }
 
@@ -62,52 +63,115 @@ struct SwimDetailView: View {
       let range = (chartProperty.minimumHeartRate - 10) ... (chartProperty.maximumHeartRate + 10)
       VStack(alignment: .leading, spacing: 12) {
         makeCardTitleView("심박수")
+        VStack(alignment: .leading, spacing: 12) {
+          HStack(spacing: 0) {
+            Text("평균 심박수")
+              .foregroundStyle(SLColor.primaryText.color)
+              .font(.pretendard(.bold, size: 22))
 
-        HStack(spacing: 0) {
-          Text("평균 심박수")
+            Spacer()
+
+            Text(chartProperty.maximumHeartRate.description + "BPM")
+              .foregroundStyle(SLColor.main01.color)
+              .font(.pretendard(.bold, size: 22))
+          }
+          HStack(spacing: 0) {
+            Text("최소 심박수: " + chartProperty.minimumHeartRate.description)
+              .foregroundStyle(SLColor.primaryText.color)
+              .font(.pretendard(.bold, size: 14))
+
+            Spacer()
+
+            Text("최대 심박수: " + chartProperty.maximumHeartRate.description)
+              .foregroundStyle(SLColor.primaryText.color)
+              .font(.pretendard(.bold, size: 14))
+          }
+
+          Chart(chartProperty.items) { item in
+            LineMark(
+              x: .value("Time", item.interval),
+              y: .value("HeartRate", item.y)
+            )
+          }
+          .chartYScale(domain: range)
+          .chartYAxis(.hidden)
+          .chartXAxis(.hidden)
+          .chartLegend(.hidden)
+          .foregroundStyle(SLColor.main01.color)
+          .frame(idealHeight: 350)
+          .background(Color.white)
+
+          Text(chartProperty.totalHour.description + "H" + chartProperty.totalMinute.description + "M")
             .foregroundStyle(SLColor.primaryText.color)
             .font(.pretendard(.bold, size: 22))
-
-          Spacer()
-
-          Text(chartProperty.maximumHeartRate.description + "BPM")
-            .foregroundStyle(SLColor.main01.color)
-            .font(.pretendard(.bold, size: 22))
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        HStack(spacing: 0) {
-          Text("최소 심박수: " + chartProperty.minimumHeartRate.description)
-            .foregroundStyle(SLColor.primaryText.color)
-            .font(.pretendard(.bold, size: 14))
-
-          Spacer()
-
-          Text("최대 심박수: " + chartProperty.maximumHeartRate.description)
-            .foregroundStyle(SLColor.primaryText.color)
-            .font(.pretendard(.bold, size: 14))
-        }
-
-        Chart(chartProperty.items) { item in
-          LineMark(
-            x: .value("Time", item.interval),
-            y: .value("HeartRate", item.y)
-          )
-        }
-        .chartYScale(domain: range)
-        .chartYAxis(.hidden)
-        .chartXAxis(.hidden)
-        .chartLegend(.hidden)
-        .foregroundStyle(SLColor.main01.color)
-        .frame(idealHeight: 350)
-        .background(Color.white)
-
-        Text(chartProperty.totalHour.description + "H" + chartProperty.totalMinute.description + "M")
-          .foregroundStyle(SLColor.primaryText.color)
-          .font(.pretendard(.bold, size: 22))
-          .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.all, 12)
+        .makeSLCardShadow()
       }
-      .padding(.all, 12)
-      .makeSLCardShadow()
       .padding(.horizontal, 16)
+    }
+  }
+
+  @ViewBuilder
+  private func makeZoneChartView() -> some View {
+    let heartRateZones: [(HeartRateZone, TimeInterval)] = store.heartRateZones.sorted { $0.key.id < $1.key.id }.map { ($0.key, $0.value) }
+
+    if !heartRateZones.isEmpty {
+      let totalSeconds = heartRateZones.map(\.1).reduce(0) { $0 + $1 }
+
+      VStack(alignment: .leading, spacing: 12) {
+        makeCardTitleView("심박수 강도 Zone")
+        VStack(alignment: .leading, spacing: 12) {
+          ForEach(heartRateZones, id: \.0) { zone, interval in
+            let (h, m, s) = formatTimeIntervalToHMS(Int(interval))
+            let trailingTitle = ((h == 0) ? "" : "\(h)H")
+              + ((m == 0) ? "" : "\(m)M")
+              + ((s == 0) ? "" : "\(s)S")
+            let ratio = interval / totalSeconds
+
+            makeZoneChartElement(
+              leadingLabel: zone.description + "  " + zone.subTitle,
+              trailingLabel: trailingTitle,
+              widthRatio: ratio
+            )
+          }
+        }
+        .padding(.all, 12)
+        .makeSLCardShadow()
+      }
+      .padding(.horizontal, 16)
+    }
+  }
+
+  @ViewBuilder
+  private func makeZoneChartElement(
+    leadingLabel: String,
+    trailingLabel: String,
+    widthRatio: Double
+  ) -> some View {
+    VStack(spacing: 4) {
+      HStack(alignment: .center, spacing: 0) {
+        Text(leadingLabel)
+          .foregroundStyle(SLColor.primaryText.color)
+          .font(.pretendard(.regular, size: 12))
+
+        Spacer()
+
+        Text(trailingLabel)
+          .foregroundStyle(SLColor.primaryText.color)
+          .font(.pretendard(.regular, size: 12))
+      }
+      GeometryReader { proxy in
+        RoundedRectangle(cornerRadius: 12)
+          .fill(SLColor.gray03.color)
+          .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 12)
+              .fill(SLColor.main01.color)
+              .frame(width: proxy.size.width * widthRatio)
+          }
+      }
+      .frame(maxWidth: .infinity, idealHeight: 15)
     }
   }
 
