@@ -27,10 +27,10 @@ struct GreetingView: View {
 
   @ViewBuilder
   private func makeContentView() -> some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: 24) {
       makeTopGreetingView()
+      makeStrictView()
       makeCalendarView()
-      makeBottomGreetingView()
     }
     .frame(maxWidth: .infinity)
     .padding(.horizontal, Metrics.horizontalSpacing)
@@ -41,7 +41,7 @@ struct GreetingView: View {
   private func makeTopGreetingView() -> some View {
     Text("안녕하세요\n오늘도 즐거운 수영 되세요")
       .foregroundStyle(.black)
-      .font(Font.pretendard(.regular, size: 18))
+      .font(Font.pretendard(.bold, size: 30))
       .foregroundStyle(SLColor.primaryText.color)
   }
 
@@ -56,46 +56,56 @@ struct GreetingView: View {
       )
       .frame(maxWidth: .infinity, idealHeight: 450)
       .preferredColorScheme(.light)
+      .padding(.vertical, 6)
+      .background(Color.main03.opacity(0.2))
+      .clipShape(RoundedRectangle(cornerRadius: 12))
+      .id(store.calendarViewID)
 
       Button {
         store.send(.tappedDetailButton)
       } label: {
         Text(buttonTitle)
+          .font(.pretendard(.bold, size: 20))
           .foregroundStyle(Color.white)
           .foregroundStyle(.black)
-          .padding(.vertical, 12)
+          .padding(.vertical, 20)
           .frame(maxWidth: .infinity)
           .background(isDisable ? SLColor.gray03.color : SLColor.main01.color)
           .clipShape(RoundedRectangle(cornerRadius: 4))
       }
+      .disabled(isDisable)
       .padding(.horizontal, 4)
     }
-    .padding(.vertical, 6)
-    .clipShape(RoundedRectangle(cornerRadius: 6))
-    .background(Color.main03.opacity(0.2))
-    .id(store.calendarViewID)
   }
 
   @ViewBuilder
-  private func makeBottomGreetingView() -> some View {
-    VStack(alignment: .leading, spacing: Metrics.titleAndDescriptionSpading) {
-      // Title
-      Text("스트릭")
-        .foregroundStyle(SLColor.primaryText.color)
-        .font(.pretendard(.bold, size: 24))
+  private func makeStrictView() -> some View {
+    HStack(alignment: .top, spacing: 0) {
+      VStack(alignment: .leading, spacing: Metrics.titleAndDescriptionSpading) {
+        Text("스트릭")
+          .foregroundStyle(SLColor.gray03.color)
+          .font(.pretendard(.bold, size: 24))
 
-      HStack(alignment: .center, spacing: 0) {
-        // TODO: 멘트 배꾸기
-        Text("오늘 수영하면 벌써 ")
-          .foregroundStyle(SLColor.primaryText.color)
-          .font(.pretendard(.bold, size: 18))
-
-        // TODO: 멘트 바꾸기
-        Text("10일")
-          .foregroundStyle(SLColor.main01.color)
-          .font(.pretendard(.bold, size: 20))
+        HStack(alignment: .center, spacing: 0) {
+          Text("오늘 수영하면 벌써 ")
+            .foregroundStyle(SLColor.gray02.color)
+            .font(.pretendard(.bold, size: 18))
+        }
       }
+      Spacer()
+
+      Circle()
+        .fill(.main02)
+        .frame(width: 100, height: 100)
+        .overlay(alignment: .center) {
+          Text("10일")
+            .foregroundStyle(SLColor.primaryText.color)
+            .font(.pretendard(.bold, size: 30))
+        }
     }
+    .padding(.all, 12)
+    .background(Color.main03.opacity(0.2))
+    .clipShape(RoundedRectangle(cornerRadius: 12))
   }
 
   var body: some View {
