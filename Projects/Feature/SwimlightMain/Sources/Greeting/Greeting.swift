@@ -22,6 +22,7 @@ struct Greeting {
     @Shared(.fileStorage(swimDataStorageURL)) var swimDataStorage: [Date] = []
     var openSettings: UUID = .init()
     var calendarViewID: UUID = .init()
+    var swimStrictDayCount: Int? = nil
     var buttonTitle: String {
       dateFormatter.string(from: selectedDate) + " 리포트 보러 가기"
     }
@@ -128,6 +129,9 @@ struct Greeting {
       case let .updateSwimWorkoutDates(dates):
         state.swimDataStorage = dates
         state.calendarDelegate.updateSwimWorkoutDates(dates)
+        let strictCount = getStrictDateFromToday(dates)
+        state.swimStrictDayCount = strictCount
+
         state.calendarViewID = .init()
         return .none
 
@@ -159,3 +163,24 @@ private let dateFormatter: DateFormatter = {
   formatter.dateFormat = "MMM dd일"
   return formatter
 }()
+
+extension Greeting {
+  private func getStrictDateFromToday(_ dates: [Date]) -> Int {
+    var strictCount = 0
+    let yesterdaySlice: Double = 60 * 60 * 24
+
+    let calendar = Calendar(identifier: .gregorian)
+    var strictCompareDate = Date.now
+
+    for targetDate in dates.sorted().reversed() {
+      let prevDateComponent = calendar.dateComponents([.calendar, .year, .month, .day], from: strictCompareDate)
+      let targetDateComponent = calendar.dateComponents([.calendar, .year, .month, .day], from: targetDate)
+      if prevDateComponent != targetDateComponent {
+        break
+      }
+      strictCount += 1
+      strictCompareDate = strictCompareDate.addingTimeInterval(-yesterdaySlice)
+    }
+    return strictCount
+  }
+}

@@ -80,6 +80,8 @@ struct GreetingView: View {
 
   @ViewBuilder
   private func makeStrictView() -> some View {
+    let strictSubfixString = store.swimStrictDayCount == nil ? "" : "일"
+    let strictString = (store.swimStrictDayCount?.description ?? "") + strictSubfixString
     HStack(alignment: .top, spacing: 0) {
       VStack(alignment: .leading, spacing: Metrics.titleAndDescriptionSpading) {
         Text("스트릭")
@@ -88,7 +90,7 @@ struct GreetingView: View {
 
         HStack(alignment: .center, spacing: 0) {
           Text("오늘 수영하면 벌써 ")
-            .foregroundStyle(SLColor.gray02.color)
+            .foregroundStyle(SLColor.gray03.color)
             .font(.pretendard(.bold, size: 18))
         }
       }
@@ -98,7 +100,7 @@ struct GreetingView: View {
         .fill(.main02)
         .frame(width: 100, height: 100)
         .overlay(alignment: .center) {
-          Text("10일")
+          Text(strictString)
             .foregroundStyle(SLColor.primaryText.color)
             .font(.pretendard(.bold, size: 30))
         }
