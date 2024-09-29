@@ -73,7 +73,7 @@ struct SwimDetailView: View {
 
             Spacer()
 
-            Text(chartProperty.maximumHeartRate.description + "BPM")
+            Text(chartProperty.averageHeartRate.description + "BPM")
               .foregroundStyle(SLColor.main01.color)
               .font(.pretendard(.bold, size: 22))
           }
@@ -194,13 +194,12 @@ struct SwimDetailView: View {
           .font(.pretendard(.regular, size: 12))
       }
       GeometryReader { proxy in
-        RoundedRectangle(cornerRadius: 12)
-          .fill(SLColor.gray03.color)
+        SLColor.gray03.color
           .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 12)
-              .fill(SLColor.main01.color)
+            SLColor.main01.color
               .frame(width: proxy.size.width * widthRatio)
           }
+          .clipShape(RoundedRectangle(cornerRadius: 12))
       }
       .frame(maxWidth: .infinity, idealHeight: 15)
     }
