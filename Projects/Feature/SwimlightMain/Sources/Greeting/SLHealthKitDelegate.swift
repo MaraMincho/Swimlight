@@ -14,7 +14,7 @@ import UIKit
 // MARK: - SLHealthKitManager
 
 struct SLHealthKitManager {
-  static let store = HKHealthStore()
+  fileprivate static let store = HKHealthStore()
   var isHealthDataAvailable: () -> Bool
   private static func _isHealthDataAvailable() -> Bool {
     HKHealthStore.isHealthDataAvailable()
@@ -96,6 +96,67 @@ struct SLHealthKitManager {
       return []
     }
     return workouts
+  }
+
+  private static func _readMonthWorkoutAveragePace(_ targetDate: Date) async throws -> Int {
+    async let distanceSamples = withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKStatistics], Error>) in
+      let (startDate, endDate) = firstAndLastDateOfMonth(for: targetDate)
+      let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+      let query = HKStatisticsCollectionQuery(
+        quantityType: .init(.distanceSwimming),
+        quantitySamplePredicate: .init(datePredicate),
+        anchorDate: endDate!,
+        intervalComponents: .init(day: 1)
+      )
+      query.initialResultsHandler = { _, statistics, error in
+        if let error {
+          continuation.resume(throwing: error)
+          return
+        }
+        guard let statistics = statistics?.statistics() else {
+          continuation.resume(throwing: NSError())
+          return
+        }
+        continuation.resume(returning: statistics)
+      }
+      store.execute(query)
+    }
+
+    async let workoutTimeSamples = withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKWorkout], Error>) in
+      let (startDate, endDate) = firstAndLastDateOfMonth(for: targetDate)
+      let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+      store.execute(
+        HKSampleQuery(
+          sampleType: .workoutType(),
+          predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+            HKQuery.predicateForWorkouts(with: .swimming),
+            datePredicate,
+          ]),
+          limit: HKObjectQueryNoLimit,
+          sortDescriptors: [.init(keyPath: \HKSample.startDate, ascending: false)],
+          resultsHandler: { _, samples, error in
+            if let hasError = error {
+              continuation.resume(throwing: hasError)
+              return
+            }
+            guard let samples else {
+              continuation.resume(throwing: NSError())
+              return
+            }
+            let workoutSamples = samples.compactMap { $0 as? HKWorkout }
+            continuation.resume(returning: workoutSamples)
+          }
+        )
+      )
+    }
+
+    let totalDistance = try await distanceSamples.compactMap { $0.sumQuantity()?.doubleValue(for: .meter()) }.reduce(0.0) { $0 + $1 }
+    let totalSeconds = try await workoutTimeSamples.reduce(0.0) { $0 + $1.duration }
+    if Int(totalSeconds) == 0 {
+      throw NSError()
+    }
+    let paceOf100m = (totalDistance / totalSeconds) * 100
+    return Int(paceOf100m)
   }
 
   var readMonthWorkoutAverageSeconds: (_ targetDate: Date) async throws -> Int
@@ -482,6 +543,68 @@ struct SLHealthKitManager {
       }
     }
     return distanceByStrokeStyle
+  }
+
+  private enum HealthKitInitialHelper {
+    static let store: HKHealthStore = SLHealthKitManager.store
+    static var getDailyHKStatisticsArrayUsingStartAndEndDate: @Sendable (
+      _ startDate: Date,
+      _ endDate: Date
+    ) async throws -> [HKStatistics] = { startDate, endDate in
+      try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKStatistics], Error>) in
+        let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+        let query = HKStatisticsCollectionQuery(
+          quantityType: .init(.distanceSwimming),
+          quantitySamplePredicate: .init(datePredicate),
+          anchorDate: endDate,
+          intervalComponents: .init(day: 1)
+        )
+        query.initialResultsHandler = { _, statistics, error in
+          if let error {
+            continuation.resume(throwing: error)
+            return
+          }
+          guard let statistics = statistics?.statistics() else {
+            continuation.resume(throwing: NSError())
+            return
+          }
+          continuation.resume(returning: statistics)
+        }
+        store.execute(query)
+      }
+    }
+
+    static var getSwimmingWorkoutTypesUsingStartAndEndDate: @Sendable (
+      _ startDate: Date,
+      _ endDate: Date
+    ) async throws -> [HKWorkout] = { startDate, endDate in
+      try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKWorkout], Error>) in
+        let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+        store.execute(
+          HKSampleQuery(
+            sampleType: .workoutType(),
+            predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
+              HKQuery.predicateForWorkouts(with: .swimming),
+              datePredicate,
+            ]),
+            limit: HKObjectQueryNoLimit,
+            sortDescriptors: [.init(keyPath: \HKSample.startDate, ascending: false)],
+            resultsHandler: { _, samples, error in
+              if let hasError = error {
+                continuation.resume(throwing: hasError)
+                return
+              }
+              guard let samples else {
+                continuation.resume(throwing: NSError())
+                return
+              }
+              let workoutSamples = samples.compactMap { $0 as? HKWorkout }
+              continuation.resume(returning: workoutSamples)
+            }
+          )
+        )
+      }
+    }
   }
 
   /// Generated By GPT4
