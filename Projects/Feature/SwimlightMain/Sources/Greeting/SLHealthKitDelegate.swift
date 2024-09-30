@@ -53,10 +53,10 @@ struct SLHealthKitManager {
 
     let typesToRead: [HKObjectType] = [
       .workoutType(),
+      .activitySummaryType(),
       HKQuantityType(.heartRate),
       HKQuantityType(.walkingHeartRateAverage),
       HKQuantityType(.activeEnergyBurned),
-      .activitySummaryType(),
       HKQuantityType(.swimmingStrokeCount),
       HKQuantityType(.distanceSwimming),
     ]
@@ -98,20 +98,54 @@ struct SLHealthKitManager {
     return workouts
   }
 
-  private static func _readMonthWorkoutAveragePace(_ targetDate: Date) async throws -> Int {
+  var readMonthWorkoutAveragePace: @Sendable (_ targetDate: Date) async throws -> Int
+  @Sendable private static func _readMonthWorkoutAveragePace(_ targetDate: Date) async throws -> Int {
     let (startDate, endDate) = firstAndLastDateOfMonth(for: targetDate)
-    async let distanceSamples = HealthKitInitialHelper.getDailySwimDistanceStatistics(startDate, endDate)
 
+    async let distanceSamples = HealthKitInitialHelper.getDailySwimDistanceStatistics(startDate, endDate)
     async let workoutTimeSamples = HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
 
     let totalDistance = try await distanceSamples.compactMap { $0.sumQuantity()?.doubleValue(for: .meter()) }.reduce(0.0) { $0 + $1 }
     let totalSeconds = try await workoutTimeSamples.reduce(0.0) { $0 + $1.duration }
     if Int(totalSeconds) == 0 {
-      throw NSError()
+      throw SLError(types: .just("TotalSeconds == 1, cant divide"))
     }
     let paceOf100m = (totalDistance / totalSeconds) * 100
     return Int(paceOf100m)
   }
+
+  var readTargetDateAveragePace: @Sendable (_ targetDate: Date) async throws -> Int
+  @Sendable private static func _readTargetDateAveragePace(_ targetDate: Date) async throws -> Int {
+    let (startDate, endDate) = startAndEndOfDay(for: targetDate)
+    async let distanceSamples = HealthKitInitialHelper.getDailySwimDistanceStatistics(startDate, endDate)
+    async let workoutTimeSamples = HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
+
+    let totalDistance = try await distanceSamples.compactMap{$0.sumQuantity()?.doubleValue(for: .meter())}.reduce(0.0){$0 + $1}
+    let totalSeconds = try await workoutTimeSamples.reduce(0.0) { $0 + $1.duration }
+    if Int(totalSeconds) == 0 {
+      throw SLError(types: .just("TotalSeconds == 1, cant divide"))
+    }
+    let paceOf100m = (totalDistance / totalSeconds) * 100
+    return Int(paceOf100m)
+  }
+
+  var readMonthWorkoutAverageCals: @Sendable (_ tagetDate: Date) async throws -> Int
+  @Sendable private static func _readMonthWorkoutAverageCals(_ targetDate: Date) async throws -> Int {
+    let (startDate, endDate) = firstAndLastDateOfMonth(for: targetDate)
+    let statistics = try await HealthKitInitialHelper.getStatisticsList(
+      quantity: .init(.activeEnergyBurned),
+      intervalComponents: .init(month: 1),
+      startDate: startDate,
+      endDate: endDate
+    )
+    let averageCals = statistics.compactMap{$0.averageQuantity()?.doubleValue(for: .smallCalorie())}
+    if averageCals.isEmpty {
+      throw SLError(types: .just("No data to read"))
+    }
+    return Int( averageCals.reduce(0.0){ $0 + $1}) / averageCals.count
+  }
+
+
 
   var readMonthWorkoutAverageSeconds: (_ targetDate: Date) async throws -> Int
   private static func _readMonthWorkoutAverageSeconds(_ targetDate: Date) async throws -> Int {
@@ -170,29 +204,10 @@ struct SLHealthKitManager {
     for workout in workoutSamples {
       var currentSamples: [HKQuantitySample] = []
       let heartRatePredicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate)
-      let samples = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKQuantitySample], Error>) in
-        let query = HKSampleQuery(
-          sampleType: HKQuantityType(.heartRate),
-          predicate: heartRatePredicate,
-          limit: HKObjectQueryNoLimit,
-          sortDescriptors: [.init(keyPath: \HKSample.startDate, ascending: true)]
-        ) { _, results, error in
-          if let error {
-            continuation.resume(throwing: error)
-            return
-          }
-          guard let samples = results as? [HKQuantitySample] else {
-            continuation.resume(returning: [])
-            return
-          }
-          continuation.resume(returning: samples)
-        }
-        store.execute(query)
-      }
+      let samples = try await HealthKitInitialHelper.getHeartRate(workout.startDate, workout.endDate)
       currentSamples.append(contentsOf: samples)
       heartRateSamples.append(currentSamples)
     }
-
     return heartRateSamples
   }
 
@@ -291,8 +306,7 @@ struct SLHealthKitManager {
   var getStrokeStyleDistance: (_ date: Date) async throws -> [SLStrokeStyle: Int]
   private static func _getStrokeStyleDistance(_ targetDate: Date) async throws -> [SLStrokeStyle: Int] {
     // GetDistanceAtSpecificDate Closure
-    var getDistanceClosure: (_ startDate: Date, _ endDate: Date) async throws -> Int?
-    getDistanceClosure = { startDate, endDate in
+    let getDistanceClosure: (_ startDate: Date, _ endDate: Date) async throws -> Int? = { startDate, endDate in
       let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
       let swimWorkoutPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
         datePredicate,
@@ -375,7 +389,7 @@ struct SLHealthKitManager {
       guard let startDate,
             let endDate
       else {
-        throw NSError()
+        throw SLError(types: .just("No End Date Error Occured"))
       }
       return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKStatistics], Error>) in
         let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
@@ -404,11 +418,6 @@ struct SLHealthKitManager {
       _ startDate: Date?,
       _ endDate: Date?
     ) async throws -> [HKWorkout] = { startDate, endDate in
-      guard let startDate,
-            let endDate
-      else {
-        throw NSError()
-      }
       return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKWorkout], Error>) in
         let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
         store.execute(
@@ -434,6 +443,58 @@ struct SLHealthKitManager {
             }
           )
         )
+      }
+    }
+
+    static var getHeartRate: @Sendable (_ startDate: Date?, _ endDate: Date?) async throws -> [HKQuantitySample] = { startDate, endDate in
+      return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKQuantitySample], Error>) in
+        let heartRatePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+        let query = HKSampleQuery(
+          sampleType: HKQuantityType(.heartRate),
+          predicate: heartRatePredicate,
+          limit: HKObjectQueryNoLimit,
+          sortDescriptors: [.init(keyPath: \HKSample.startDate, ascending: true)]
+        ) { _, results, error in
+          if let error {
+            continuation.resume(throwing: error)
+            return
+          }
+          guard let samples = results as? [HKQuantitySample] else {
+            continuation.resume(returning: [])
+            return
+          }
+          continuation.resume(returning: samples)
+        }
+        store.execute(query)
+      }
+    }
+
+    @Sendable static func getStatisticsList (
+      quantity: HKQuantityType,
+      intervalComponents: DateComponents = .init(day: 1),
+      startDate: Date?,
+      endDate: Date?
+    ) async throws -> [HKStatistics]  {
+      guard let startDate, let endDate else { throw SLError(types: .just("property endDate nil error"))}
+      return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKStatistics], Error>) in
+        let query = HKStatisticsCollectionQuery(
+          quantityType: .init(.activeEnergyBurned),
+          quantitySamplePredicate: HKQuery.predicateForSamples(withStart: startDate, end: endDate),
+          anchorDate: endDate,
+          intervalComponents: .init()
+        )
+        query.initialResultsHandler = { _, statistics, error in
+          if let error {
+            continuation.resume(throwing: error)
+            return
+          }
+          guard let statistics = statistics?.statistics() else {
+            let error = SLError(types: .just("Statistics Null Error"))
+            continuation.resume(throwing: error)
+            return
+          }
+          continuation.resume(returning: statistics)
+        }
       }
     }
   }
@@ -473,25 +534,6 @@ struct SLHealthKitManager {
   }
 }
 
-// MARK: - HeartRateChartProperty
-
-struct HeartRateChartProperty: Equatable {
-  let totalHour: Int
-  let totalMinute: Int
-  let averageHeartRate: Int
-  let maximumHeartRate: Int
-  let minimumHeartRate: Int
-  let items: [HeartRateChartElement]
-}
-
-// MARK: - HeartRateChartElement
-
-struct HeartRateChartElement: Equatable, Identifiable {
-  var id: Double { interval }
-
-  let interval: Double
-  let y: Int
-}
 
 // MARK: - SLHealthKitManager + DependencyKey
 
@@ -500,7 +542,10 @@ extension SLHealthKitManager: DependencyKey {
     isHealthDataAvailable: _isHealthDataAvailable,
     authorizationStatus: _authorizationStatus,
     requestAuthorization: _requestAuthorization,
-    readSwimWorkouts: _readSwimWorkouts,
+    readSwimWorkouts: _readSwimWorkouts, 
+    readMonthWorkoutAveragePace: _readMonthWorkoutAveragePace,
+    readTargetDateAveragePace: _readTargetDateAveragePace, 
+    readMonthWorkoutAverageCals: _readMonthWorkoutAverageCals,
     readMonthWorkoutAverageSeconds: _readMonthWorkoutAverageSeconds,
     readTargetDateWorkoutSeconds: _readTargetDateWorkoutSeconds,
     readMonthWorkoutAverageDistance: _readMonthWorkoutAverageDistance,
@@ -515,44 +560,5 @@ extension DependencyValues {
   var healthKitManager: SLHealthKitManager {
     get { self[SLHealthKitManager.self] }
     set { self[SLHealthKitManager.self] = newValue }
-  }
-}
-
-// MARK: - SLStrokeStyle
-
-enum SLStrokeStyle: Int {
-  case freestyle = 2 // 자유형
-  case backstroke = 3 // 배영
-  case breaststroke = 4 // 평영
-  case butterfly = 5 // 접영
-  case mixed = 1 // 혼합
-  case kickBoard = 6 // 킥판
-
-  /// Unknown case for fallback
-  case unknown = 0 // 알 수 없음
-
-  /// 스트로크 스타일의 설명을 반환
-  func description() -> String {
-    switch self {
-    case .freestyle:
-      return "자유형"
-    case .backstroke:
-      return "배영"
-    case .breaststroke:
-      return "평영"
-    case .butterfly:
-      return "접영"
-    case .mixed:
-      return "혼합"
-    case .kickBoard:
-      return "킥판"
-    case .unknown:
-      return "알 수 없음"
-    }
-  }
-
-  /// HealthKit의 메타데이터 값에서 해당하는 스타일로 변환
-  static func from(metadataValue: Int) -> SLStrokeStyle {
-    return SLStrokeStyle(rawValue: metadataValue) ?? .unknown
   }
 }
