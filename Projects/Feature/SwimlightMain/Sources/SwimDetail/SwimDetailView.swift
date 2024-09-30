@@ -50,13 +50,30 @@ struct SwimDetailView: View {
   private func makeMonthDifferenceView() -> some View {
     VStack(alignment: .leading, spacing: 12) {
       makeCardTitleView(Constants.MonthDifferenceTitle)
-      HStack(spacing: 9) {
-        makeHalfCardTitle(topLabel: "운동 시간", middleLabel: store.workoutSecondsLabel, capsuleLabel: store.workoutSecondsCapsuleLabel)
-
-        makeHalfCardTitle(topLabel: "운동 거리", middleLabel: store.workoutDistanceLabel, capsuleLabel: store.workoutDistanceCapsuleLabel)
-      }
+      makeFirstLineCardView()
+      makeSecondLineCardView()
     }
     .padding(.horizontal, 16)
+  }
+
+  @ViewBuilder
+  private func makeFirstLineCardView() -> some View {
+    HStack(spacing: 12) {
+      makeHalfCardTitle(topLabel: "운동 시간", middleLabel: store.workoutSecondsLabel, capsuleLabel: store.workoutSecondsCapsuleLabel)
+
+      makeHalfCardTitle(topLabel: "운동 거리", middleLabel: store.workoutDistanceLabel, capsuleLabel: store.workoutDistanceCapsuleLabel)
+    }
+  }
+
+  @ViewBuilder
+  private func makeSecondLineCardView() -> some View {
+    HStack(spacing: 12) {
+      let (energyMiddleLabel, energyCapsuleLabel) = (store.energyElement.targetDateSumLabel, store.energyElement.monthAverageLabel)
+      let (paceMiddleLabel, paceCapsuleLabel) = (store.paceElement.targetDateLabel, store.paceElement.monthAverageLabel)
+
+      makeHalfCardTitle(topLabel: "소모 활성 칼로리", middleLabel: energyMiddleLabel, capsuleLabel: energyCapsuleLabel)
+      makeHalfCardTitle(topLabel: "100m 페이스", middleLabel: paceMiddleLabel, capsuleLabel: paceCapsuleLabel)
+    }
   }
 
   @ViewBuilder

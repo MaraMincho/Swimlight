@@ -24,6 +24,8 @@ struct SwimDetailReducer {
     var chartProperty: HeartRateChartProperty? = nil
     var heartRateZones: [HeartRateZone: TimeInterval] = [:]
     var strokeStylesAndMeter: [SLStrokeStyle: Int] = [:]
+    var paceElement: SwimWorkoutPaceElement = .init(targetDateAverage: nil, monthAverage: nil)
+    var energyElement: SwimWorkoutEnergyElement = .init(targetDateSum: nil, monthAverage: nil)
 
     private let numberFormatter: NumberFormatter = {
       let formatter = NumberFormatter()
@@ -70,11 +72,13 @@ struct SwimDetailReducer {
 
   enum Action: Equatable {
     case onAppear(Bool)
-    case updateWorkoutDuration(seconds: Int, monthSecondsAverage: Int)
-    case updateWorkoutDistance(distance: Int, monthDistanceAverage: Int)
+    case updateWorkoutDuration(seconds: Int, monthAverageSeconds: Int)
+    case updateWorkoutDistance(distance: Int, monthAverageDistance: Int)
     case updateHeartRateChartProperty(HeartRateChartProperty)
     case updateHeartRateZone([HeartRateZone: TimeInterval])
     case updateStrokeStyle([SLStrokeStyle: Int])
+    case updateWorkoutPace(pace: Int, monthAveragePace: Int)
+    case updateWorkoutEnergy(kcal: Int, monthAverageKacl: Int)
   }
 
   @Dependency(\.healthKitManager) var healthKitManager
@@ -93,21 +97,22 @@ struct SwimDetailReducer {
             taskGroup.addTask {
               async let averageSeconds = healthKitManager.readMonthWorkoutAverageSeconds(targetDate)
               async let targetDateSeconds = healthKitManager.readTargetDateWorkoutSeconds(targetDate)
-              try await send(.updateWorkoutDuration(seconds: targetDateSeconds, monthSecondsAverage: averageSeconds))
+              try await send(.updateWorkoutDuration(seconds: targetDateSeconds, monthAverageSeconds: averageSeconds))
             }
             taskGroup.addTask {
               async let averageDistance = healthKitManager.readMonthWorkoutAverageDistance(targetDate)
               async let targetDateDistance = healthKitManager.readTargetDateDistance(targetDate)
-              try await send(.updateWorkoutDistance(distance: targetDateDistance, monthDistanceAverage: averageDistance))
+              try await send(.updateWorkoutDistance(distance: targetDateDistance, monthAverageDistance: averageDistance))
             }
             taskGroup.addTask {
               let monthAveragePace = try await healthKitManager.readMonthWorkoutAveragePace(targetDate)
               let targetDateAveragePace = try await healthKitManager.readTargetDateAveragePace(targetDate)
+              await send(.updateWorkoutPace(pace: targetDateAveragePace, monthAveragePace: monthAveragePace))
             }
             taskGroup.addTask {
-              let monthAverageCals = try await healthKitManager.readMonthWorkoutAverageCals(targetDate)
-              let targetDateTotalCals = try await healthKitManager.readTargetDateAverageCals(targetDate)
-              print(monthAverageCals, targetDateTotalCals)
+              let monthAverageKcals = try await healthKitManager.readMonthWorkoutAverageCals(targetDate)
+              let targetDateTotalKcals = try await healthKitManager.readTargetDateAverageCals(targetDate)
+              await send(.updateWorkoutEnergy(kcal: targetDateTotalKcals, monthAverageKacl: monthAverageKcals))
             }
             taskGroup.addTask {
               let chartProperty = try await healthKitManager.getHeartRateSamples(targetDate)
@@ -143,6 +148,13 @@ struct SwimDetailReducer {
       case let .updateStrokeStyle(style):
         state.strokeStylesAndMeter = style
         return .none
+
+      case let .updateWorkoutPace(pace: pace, monthAveragePace: monthAverage):
+        state.paceElement = .init(targetDateAverage: pace, monthAverage: monthAverage)
+        return .none
+      case let .updateWorkoutEnergy(kcal: kcal, monthAverageKacl: monthAverage):
+        state.energyElement = .init(targetDateSum: kcal, monthAverage: monthAverage)
+        return .none
       }
     }
   }
@@ -161,4 +173,71 @@ func formatTimeIntervalToHMS(_ timeInterval: Int) -> (hours: Int, minutes: Int, 
   let seconds = timeInterval % 60
 
   return (hours, minutes, seconds)
+}
+
+// MARK: - SwimWorkoutEnergyElement
+
+struct SwimWorkoutEnergyElement: Equatable {
+  private let targetDateSum: Int?
+  private let monthAverage: Int?
+  init(targetDateSum: Int?, monthAverage: Int?) {
+    self.targetDateSum = targetDateSum
+    self.monthAverage = monthAverage
+  }
+
+  var monthAverageLabel: String {
+    guard let targetDateSum,
+          let monthAverage
+    else {
+      return ""
+    }
+    let percentage = Int(Double(monthAverage - targetDateSum) / Double(monthAverage) * 100)
+    let percentageDescription = percentage > 0 ? "+" + percentage.description : percentage.description
+    return percentageDescription + "%"
+  }
+
+  var targetDateSumLabel: String {
+    let unitString = " kcal"
+    guard let targetDateSum else {
+      return "0" + unitString
+    }
+    return targetDateSum.description + unitString
+  }
+}
+
+// MARK: - SwimWorkoutPaceElement
+
+struct SwimWorkoutPaceElement: Equatable {
+  private let targetDateAverage: Int?
+  private let monthAverage: Int?
+
+  init(targetDateAverage: Int?, monthAverage: Int?) {
+    self.targetDateAverage = targetDateAverage
+    self.monthAverage = monthAverage
+  }
+
+  var monthAverageLabel: String {
+    guard let targetDateAverage,
+          let monthAverage
+    else {
+      return ""
+    }
+    let percentage = Int(Double(monthAverage - targetDateAverage) / Double(monthAverage) * 100)
+    let percentageDescription = percentage > 0 ? "+" + percentage.description : percentage.description
+    return percentageDescription + "%"
+  }
+
+  var targetDateLabel: String {
+    guard let targetDateAverage else {
+      return "0초"
+    }
+    let hour = targetDateAverage / 3600
+    let minute = (targetDateAverage % 3600) / 60
+    let seconds = targetDateAverage % 60
+
+    let hourLabel = hour == 0 ? nil : hour.description + "시간"
+    let minuteLabel = minute == 0 ? nil : minute.description + "분"
+    let secondsLabel = seconds == 0 ? "" : seconds.description + "초"
+    return [hourLabel, minuteLabel, secondsLabel].compactMap { $0 }.joined(separator: " ")
+  }
 }
