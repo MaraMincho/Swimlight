@@ -149,7 +149,8 @@ struct SLHealthKitManager {
           startDate: startDate,
           endDate: endDate
         )
-        return statistics.compactMap { $0.sumQuantity()?.doubleValue(for: .largeCalorie()) }.reduce(0.0) { $0 + $1 }
+        let targetDateWorkoutsEnergy = statistics.compactMap { $0.sumQuantity()?.doubleValue(for: .largeCalorie())}
+        return targetDateWorkoutsEnergy.reduce(0.0) { $0 + $1 }
       }
       let currentDateTotalKCals = currentDateCals.reduce(0.0) { $0 + $1 }
       return currentDateTotalKCals
@@ -171,8 +172,8 @@ struct SLHealthKitManager {
         startDate: workout.startDate,
         endDate: workout.endDate
       )
-
-      return statistics.compactMap { $0.sumQuantity()?.doubleValue(for: .largeCalorie()) }.reduce(0.0) { $0 + $1 }
+      let targetDateWorkoutsEnergy = statistics.compactMap { $0.sumQuantity()?.doubleValue(for: .largeCalorie())}
+      return targetDateWorkoutsEnergy.reduce(0.0) { $0 + $1 }
     }
     return Int(cals.reduce(0.0) { $0 + $1 })
   }
