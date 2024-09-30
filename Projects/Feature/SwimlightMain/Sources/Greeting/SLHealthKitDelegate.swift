@@ -120,7 +120,7 @@ struct SLHealthKitManager {
     async let distanceSamples = HealthKitInitialHelper.getDailySwimDistanceStatistics(startDate, endDate)
     async let workoutTimeSamples = HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
 
-    let totalDistance = try await distanceSamples.compactMap{$0.sumQuantity()?.doubleValue(for: .meter())}.reduce(0.0){$0 + $1}
+    let totalDistance = try await distanceSamples.compactMap { $0.sumQuantity()?.doubleValue(for: .meter()) }.reduce(0.0) { $0 + $1 }
     let totalSeconds = try await workoutTimeSamples.reduce(0.0) { $0 + $1.duration }
     if Int(totalSeconds) == 0 {
       throw SLError(types: .just("TotalSeconds == 1, cant divide"))
@@ -133,19 +133,26 @@ struct SLHealthKitManager {
   @Sendable private static func _readMonthWorkoutAverageCals(_ targetDate: Date) async throws -> Int {
     let (startDate, endDate) = firstAndLastDateOfMonth(for: targetDate)
     let statistics = try await HealthKitInitialHelper.getStatisticsList(
-      quantity: .init(.activeEnergyBurned),
+      quantity: .init(.basalEnergyBurned),
       intervalComponents: .init(month: 1),
       startDate: startDate,
       endDate: endDate
     )
-    let averageCals = statistics.compactMap{$0.averageQuantity()?.doubleValue(for: .smallCalorie())}
-    if averageCals.isEmpty {
+    guard let avgCal = statistics.first?.averageQuantity()?.doubleValue(for: .smallCalorie()) else {
       throw SLError(types: .just("No data to read"))
     }
-    return Int( averageCals.reduce(0.0){ $0 + $1}) / averageCals.count
+    return Int(avgCal)
   }
 
-
+  var readTargetDateAverageCals: @Sendable (_ targetDate: Date) async throws -> Int
+  @Sendable private static func _readWorkoutAverageCals(_ targetDate: Date) async throws -> Int {
+    let (startDate, endDate) = startAndEndOfDay(for: targetDate)
+    let statistics = try await HealthKitInitialHelper.getStatisticsList(quantity: .init(.basalEnergyBurned), startDate: startDate, endDate: endDate)
+    guard let avgCal = statistics.first?.averageQuantity()?.doubleValue(for: .smallCalorie()) else {
+      throw SLError(types: .just("No data to read"))
+    }
+    return Int(avgCal)
+  }
 
   var readMonthWorkoutAverageSeconds: (_ targetDate: Date) async throws -> Int
   private static func _readMonthWorkoutAverageSeconds(_ targetDate: Date) async throws -> Int {
@@ -469,13 +476,13 @@ struct SLHealthKitManager {
       }
     }
 
-    @Sendable static func getStatisticsList (
-      quantity: HKQuantityType,
+    @Sendable static func getStatisticsList(
+      quantity _: HKQuantityType,
       intervalComponents: DateComponents = .init(day: 1),
       startDate: Date?,
       endDate: Date?
-    ) async throws -> [HKStatistics]  {
-      guard let startDate, let endDate else { throw SLError(types: .just("property endDate nil error"))}
+    ) async throws -> [HKStatistics] {
+      guard let startDate, let endDate else { throw SLError(types: .just("property endDate nil error")) }
       return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKStatistics], Error>) in
         let query = HKStatisticsCollectionQuery(
           quantityType: .init(.activeEnergyBurned),
@@ -534,18 +541,18 @@ struct SLHealthKitManager {
   }
 }
 
-
-// MARK: - SLHealthKitManager + DependencyKey
+// MARK: DependencyKey
 
 extension SLHealthKitManager: DependencyKey {
   static var liveValue: SLHealthKitManager = .init(
     isHealthDataAvailable: _isHealthDataAvailable,
     authorizationStatus: _authorizationStatus,
     requestAuthorization: _requestAuthorization,
-    readSwimWorkouts: _readSwimWorkouts, 
+    readSwimWorkouts: _readSwimWorkouts,
     readMonthWorkoutAveragePace: _readMonthWorkoutAveragePace,
-    readTargetDateAveragePace: _readTargetDateAveragePace, 
+    readTargetDateAveragePace: _readTargetDateAveragePace,
     readMonthWorkoutAverageCals: _readMonthWorkoutAverageCals,
+    readTargetDateAverageCals: _readWorkoutAverageCals,
     readMonthWorkoutAverageSeconds: _readMonthWorkoutAverageSeconds,
     readTargetDateWorkoutSeconds: _readTargetDateWorkoutSeconds,
     readMonthWorkoutAverageDistance: _readMonthWorkoutAverageDistance,
