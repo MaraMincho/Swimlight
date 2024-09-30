@@ -101,6 +101,15 @@ struct SwimDetailReducer {
               try await send(.updateWorkoutDistance(distance: targetDateDistance, monthDistanceAverage: averageDistance))
             }
             taskGroup.addTask {
+              let monthAveragePace = try await healthKitManager.readMonthWorkoutAveragePace(targetDate)
+              let targetDateAveragePace = try await healthKitManager.readTargetDateAveragePace(targetDate)
+            }
+            taskGroup.addTask {
+              let monthAverageCals = try await healthKitManager.readMonthWorkoutAverageCals(targetDate)
+              let targetDateTotalCals = try await healthKitManager.readTargetDateAverageCals(targetDate)
+              print(monthAverageCals, targetDateTotalCals)
+            }
+            taskGroup.addTask {
               let chartProperty = try await healthKitManager.getHeartRateSamples(targetDate)
               await send(.updateHeartRateChartProperty(chartProperty))
             }

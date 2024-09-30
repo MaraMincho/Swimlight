@@ -30,6 +30,7 @@ struct SLHealthKitManager {
       .workoutType(),
       HKQuantityType(.heartRate),
       HKQuantityType(.activeEnergyBurned),
+      HKQuantityType(.basalEnergyBurned),
       .activitySummaryType(),
       HKQuantityType(.swimmingStrokeCount),
       HKQuantityType(.distanceSwimming),
@@ -56,6 +57,7 @@ struct SLHealthKitManager {
       .activitySummaryType(),
       HKQuantityType(.heartRate),
       HKQuantityType(.walkingHeartRateAverage),
+      HKQuantityType(.basalEnergyBurned),
       HKQuantityType(.activeEnergyBurned),
       HKQuantityType(.swimmingStrokeCount),
       HKQuantityType(.distanceSwimming),
@@ -107,10 +109,10 @@ struct SLHealthKitManager {
 
     let totalDistance = try await distanceSamples.compactMap { $0.sumQuantity()?.doubleValue(for: .meter()) }.reduce(0.0) { $0 + $1 }
     let totalSeconds = try await workoutTimeSamples.reduce(0.0) { $0 + $1.duration }
-    if Int(totalSeconds) == 0 {
+    if Int(totalDistance) == 0 {
       throw SLError(types: .just("TotalSeconds == 1, cant divide"))
     }
-    let paceOf100m = (totalDistance / totalSeconds) * 100
+    let paceOf100m = (totalSeconds / totalDistance) * 100
     return Int(paceOf100m)
   }
 
@@ -122,36 +124,57 @@ struct SLHealthKitManager {
 
     let totalDistance = try await distanceSamples.compactMap { $0.sumQuantity()?.doubleValue(for: .meter()) }.reduce(0.0) { $0 + $1 }
     let totalSeconds = try await workoutTimeSamples.reduce(0.0) { $0 + $1.duration }
-    if Int(totalSeconds) == 0 {
+    if Int(totalDistance) == 0 {
       throw SLError(types: .just("TotalSeconds == 1, cant divide"))
     }
-    let paceOf100m = (totalDistance / totalSeconds) * 100
+    let paceOf100m = (totalSeconds / totalDistance) * 100
     return Int(paceOf100m)
   }
 
   var readMonthWorkoutAverageCals: @Sendable (_ tagetDate: Date) async throws -> Int
   @Sendable private static func _readMonthWorkoutAverageCals(_ targetDate: Date) async throws -> Int {
     let (startDate, endDate) = firstAndLastDateOfMonth(for: targetDate)
-    let statistics = try await HealthKitInitialHelper.getStatisticsList(
-      quantity: .init(.basalEnergyBurned),
-      intervalComponents: .init(month: 1),
-      startDate: startDate,
-      endDate: endDate
-    )
-    guard let avgCal = statistics.first?.averageQuantity()?.doubleValue(for: .smallCalorie()) else {
-      throw SLError(types: .just("No data to read"))
+    let workouts = try await HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
+    let calendar = Calendar(identifier: .gregorian)
+    var dateComponentAndStartEndDate: [DateComponents: [(Date, Date)]] = [:]
+    workouts.forEach { val in
+      let components = calendar.dateComponents([.calendar, .year, .month, .day], from: val.startDate)
+      dateComponentAndStartEndDate[components, default: []].append((val.startDate, val.endDate))
     }
-    return Int(avgCal)
+
+    let statistics = try await dateComponentAndStartEndDate.sorted { $0.key.day! < $1.key.day! }.asyncMap { _, value -> Double? in
+      let currentDateCals = try await value.asyncMap { startDate, endDate in
+        let statistics = try await HealthKitInitialHelper.getStatisticsList(
+          quantity: .init(.activeEnergyBurned),
+          startDate: startDate,
+          endDate: endDate
+        )
+        return statistics.compactMap { $0.sumQuantity()?.doubleValue(for: .largeCalorie()) }.reduce(0.0) { $0 + $1 }
+      }
+      let currentDateTotalKCals = currentDateCals.reduce(0.0) { $0 + $1 }
+      return currentDateTotalKCals
+    }.compactMap { $0 }
+
+    guard let average = statistics.average() else {
+      throw SLError(types: .just("No Health Data to divide"))
+    }
+    return Int(average)
   }
 
   var readTargetDateAverageCals: @Sendable (_ targetDate: Date) async throws -> Int
   @Sendable private static func _readWorkoutAverageCals(_ targetDate: Date) async throws -> Int {
     let (startDate, endDate) = startAndEndOfDay(for: targetDate)
-    let statistics = try await HealthKitInitialHelper.getStatisticsList(quantity: .init(.basalEnergyBurned), startDate: startDate, endDate: endDate)
-    guard let avgCal = statistics.first?.averageQuantity()?.doubleValue(for: .smallCalorie()) else {
-      throw SLError(types: .just("No data to read"))
+    let workouts = try await HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
+    let cals = try await workouts.asyncMap { workout in
+      let statistics = try await HealthKitInitialHelper.getStatisticsList(
+        quantity: .init(.activeEnergyBurned),
+        startDate: workout.startDate,
+        endDate: workout.endDate
+      )
+
+      return statistics.compactMap { $0.sumQuantity()?.doubleValue(for: .largeCalorie()) }.reduce(0.0) { $0 + $1 }
     }
-    return Int(avgCal)
+    return Int(cals.reduce(0.0) { $0 + $1 })
   }
 
   var readMonthWorkoutAverageSeconds: (_ targetDate: Date) async throws -> Int
@@ -202,7 +225,6 @@ struct SLHealthKitManager {
 
   private static func getTargetDateSwimmingHeartRateSamples(_ targetDate: Date) async throws -> [[HKQuantitySample]] {
     // 수영 WorkoutData 구하기
-    let workoutPredicate = HKQuery.predicateForWorkouts(with: .swimming)
     let (startDate, endDate) = startAndEndOfDay(for: targetDate)
 
     let workoutSamples = try await HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
@@ -210,7 +232,6 @@ struct SLHealthKitManager {
     var heartRateSamples: [[HKQuantitySample]] = []
     for workout in workoutSamples {
       var currentSamples: [HKQuantitySample] = []
-      let heartRatePredicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate)
       let samples = try await HealthKitInitialHelper.getHeartRate(workout.startDate, workout.endDate)
       currentSamples.append(contentsOf: samples)
       heartRateSamples.append(currentSamples)
@@ -477,18 +498,20 @@ struct SLHealthKitManager {
     }
 
     @Sendable static func getStatisticsList(
-      quantity _: HKQuantityType,
+      quantity: HKQuantityType,
       intervalComponents: DateComponents = .init(day: 1),
       startDate: Date?,
       endDate: Date?
     ) async throws -> [HKStatistics] {
       guard let startDate, let endDate else { throw SLError(types: .just("property endDate nil error")) }
       return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKStatistics], Error>) in
+        let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+
         let query = HKStatisticsCollectionQuery(
-          quantityType: .init(.activeEnergyBurned),
-          quantitySamplePredicate: HKQuery.predicateForSamples(withStart: startDate, end: endDate),
+          quantityType: quantity,
+          quantitySamplePredicate: datePredicate,
           anchorDate: endDate,
-          intervalComponents: .init()
+          intervalComponents: intervalComponents
         )
         query.initialResultsHandler = { _, statistics, error in
           if let error {
@@ -502,12 +525,20 @@ struct SLHealthKitManager {
           }
           continuation.resume(returning: statistics)
         }
+        store.execute(query)
       }
     }
   }
 
+  private static let sharedCalendar: Calendar = {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.locale = Locale.current
+    return calendar
+  }()
+
   /// Generated By GPT4
-  private static func startAndEndOfDay(for date: Date, calendar: Calendar = Calendar(identifier: .gregorian)) -> (startDate: Date?, endDate: Date?) {
+  private static func startAndEndOfDay(for date: Date) -> (startDate: Date?, endDate: Date?) {
+    let calendar = sharedCalendar
     // Start date: 해당 날짜의 0시
     let startDate = calendar.startOfDay(for: date)
 
@@ -517,9 +548,8 @@ struct SLHealthKitManager {
     return (startDate, endDate)
   }
 
-  /// Generated By GPT4
   private static func firstAndLastDateOfMonth(for date: Date) -> (firstDay: Date?, lastDay: Date?) {
-    let calendar = Calendar(identifier: .gregorian)
+    let calendar = sharedCalendar
 
     // Get the first day of the month
     guard let monthInterval = calendar.dateInterval(of: .month, for: date) else {
@@ -528,8 +558,8 @@ struct SLHealthKitManager {
 
     let firstDayOfMonth = monthInterval.start
 
-    // Get the last day of the month by adding the month duration to the start date
-    let lastDayOfMonth = calendar.date(byAdding: DateComponents(day: -1), to: monthInterval.end)
+    // Get the last day of the month by subtracting 1 second from the start of the next month
+    let lastDayOfMonth = calendar.date(byAdding: DateComponents(second: -1), to: monthInterval.end)
 
     return (firstDayOfMonth, lastDayOfMonth)
   }
@@ -567,5 +597,22 @@ extension DependencyValues {
   var healthKitManager: SLHealthKitManager {
     get { self[SLHealthKitManager.self] }
     set { self[SLHealthKitManager.self] = newValue }
+  }
+}
+
+extension [Double] {
+  func average() -> Double? {
+    let count = count
+    if count == 0 {
+      return nil
+    }
+    return reduce(0.0) { $0 + $1 } / Double(count)
+  }
+}
+
+extension Sequence where Element: Hashable {
+  func uniqued() -> [Element] {
+    var set = Set<Element>()
+    return filter { set.insert($0).inserted }
   }
 }
