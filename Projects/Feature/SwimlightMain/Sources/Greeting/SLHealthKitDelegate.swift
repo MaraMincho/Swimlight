@@ -13,19 +13,25 @@ import UIKit
 
 // MARK: - SLHealthKitManager
 
+/// A struct that manages HealthKit operations for swimming-related data.
 struct SLHealthKitManager {
+  /// The shared HealthKit store instance.
   fileprivate static let store = HKHealthStore()
+
+  /// Checks if HealthKit is available on the device.
+  /// - Returns: A boolean indicating if HealthKit is available.
   var isHealthDataAvailable: () -> Bool
   private static func _isHealthDataAvailable() -> Bool {
     HKHealthStore.isHealthDataAvailable()
   }
 
+  /// Requests the current authorization status for HealthKit.
+  /// - Returns: The current `HKAuthorizationRequestStatus`.
+  /// - Throws: An error if the request fails.
   var authorizationStatus: () async throws -> HKAuthorizationRequestStatus
   private static func _authorizationStatus() async throws -> HKAuthorizationRequestStatus {
-    // MARK: - is only for write mode, so you make another logic
-
+    // Define the types of data we want to read from HealthKit
     let typesToShare: [HKWorkoutType] = []
-
     let typesToRead: [HKObjectType] = [
       .workoutType(),
       HKQuantityType(.heartRate),
@@ -36,6 +42,7 @@ struct SLHealthKitManager {
       HKQuantityType(.distanceSwimming),
     ]
 
+    // Request authorization status
     return try await withCheckedThrowingContinuation { continuation in
       store.getRequestStatusForAuthorization(toShare: .init(typesToShare), read: .init(typesToRead)) { status, error in
         if let error {
@@ -46,12 +53,12 @@ struct SLHealthKitManager {
     }
   }
 
+  /// Requests authorization to access HealthKit data.
+  /// - Throws: An error if the authorization request fails.
   var requestAuthorization: () async throws -> Void
   private static func _requestAuthorization() async throws {
-    // none to write
-    let typesToShare: [HKWorkoutType] = [
-    ]
-
+    // Define the types of data we want to read from HealthKit
+    let typesToShare: [HKWorkoutType] = []
     let typesToRead: [HKObjectType] = [
       .workoutType(),
       .activitySummaryType(),
@@ -63,78 +70,78 @@ struct SLHealthKitManager {
       HKQuantityType(.distanceSwimming),
     ]
 
+    // Request authorization
     try await store.requestAuthorization(toShare: .init(typesToShare), read: .init(typesToRead))
   }
 
+  /// Reads swimming workouts from HealthKit.
+  /// - Returns: An array of `HKWorkout` objects representing swimming workouts.
+  /// - Throws: An error if the read operation fails.
   var readSwimWorkouts: () async throws -> [HKWorkout]
   private static func _readSwimWorkouts() async throws -> [HKWorkout] {
-    let workoutPredicate = HKQuery.predicateForWorkouts(with: .swimming)
-    let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-      workoutPredicate,
-    ])
-    let samples = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKSample], Error>) in
-      store.execute(
-        HKSampleQuery(
-          sampleType: .workoutType(),
-          predicate: predicate,
-          limit: HKObjectQueryNoLimit,
-          sortDescriptors: [.init(keyPath: \HKSample.startDate, ascending: false)],
-          resultsHandler: { _, samples, error in
-            if let hasError = error {
-              continuation.resume(throwing: hasError)
-              return
-            }
-            guard let samples else {
-              continuation.resume(throwing: NSError())
-              return
-            }
-            continuation.resume(returning: samples)
-          }
-        )
-      )
-    }
-
-    guard let workouts = samples as? [HKWorkout] else {
-      return []
-    }
-    return workouts
+    return try await HealthKitInitialHelper.getSwimmingWorkoutTypes(nil, nil)
   }
 
+  /// Calculates the average pace for swimming workouts in a given month.
+  /// - Parameter targetDate: The date within the month to calculate the average pace for.
+  /// - Returns: The average pace in seconds per 100 meters.
+  /// - Throws: An error if the calculation fails.
   var readMonthWorkoutAveragePace: @Sendable (_ targetDate: Date) async throws -> Int
   @Sendable private static func _readMonthWorkoutAveragePace(_ targetDate: Date) async throws -> Int {
     let (startDate, endDate) = firstAndLastDateOfMonth(for: targetDate)
 
+    // Get distance and workout time samples concurrently
     async let distanceSamples = HealthKitInitialHelper.getDailySwimDistanceStatistics(startDate, endDate)
     async let workoutTimeSamples = HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
 
+    // Calculate total distance and total seconds
     let totalDistance = try await distanceSamples.compactMap { $0.sumQuantity()?.doubleValue(for: .meter()) }.reduce(0.0) { $0 + $1 }
     let totalSeconds = try await workoutTimeSamples.reduce(0.0) { $0 + $1.duration }
+
     if Int(totalDistance) == 0 {
       throw SLError(types: .just("TotalSeconds == 1, cant divide"))
     }
+
+    // Calculate pace per 100m
     let paceOf100m = (totalSeconds / totalDistance) * 100
     return Int(paceOf100m)
   }
 
+  /// Calculates the average pace for swimming workouts on a specific date.
+  /// - Parameter targetDate: The date to calculate the average pace for.
+  /// - Returns: The average pace in seconds per 100 meters.
+  /// - Throws: An error if the calculation fails.
   var readTargetDateAveragePace: @Sendable (_ targetDate: Date) async throws -> Int
   @Sendable private static func _readTargetDateAveragePace(_ targetDate: Date) async throws -> Int {
     let (startDate, endDate) = startAndEndOfDay(for: targetDate)
+
+    // Get distance and workout time samples concurrently
     async let distanceSamples = HealthKitInitialHelper.getDailySwimDistanceStatistics(startDate, endDate)
     async let workoutTimeSamples = HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
 
+    // Calculate total distance and total seconds
     let totalDistance = try await distanceSamples.compactMap { $0.sumQuantity()?.doubleValue(for: .meter()) }.reduce(0.0) { $0 + $1 }
     let totalSeconds = try await workoutTimeSamples.reduce(0.0) { $0 + $1.duration }
+
     if Int(totalDistance) == 0 {
       throw SLError(types: .just("TotalSeconds == 1, cant divide"))
     }
+
+    // Calculate pace per 100m
     let paceOf100m = (totalSeconds / totalDistance) * 100
     return Int(paceOf100m)
   }
 
+  /// Calculates the average calories burned during swimming workouts in a given month.
+  /// - Parameter targetDate: The date within the month to calculate the average calories for.
+  /// - Returns: The average calories burned.
+  /// - Throws: An error if the calculation fails.
   var readMonthWorkoutAverageCals: @Sendable (_ tagetDate: Date) async throws -> Int
   @Sendable private static func _readMonthWorkoutAverageCals(_ targetDate: Date) async throws -> Int {
     let (startDate, endDate) = firstAndLastDateOfMonth(for: targetDate)
     let workouts = try await HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
+
+    // Group workouts by date
     let calendar = Calendar(identifier: .gregorian)
     var dateComponentAndStartEndDate: [DateComponents: [(Date, Date)]] = [:]
     workouts.forEach { val in
@@ -142,6 +149,7 @@ struct SLHealthKitManager {
       dateComponentAndStartEndDate[components, default: []].append((val.startDate, val.endDate))
     }
 
+    // Calculate calories for each day
     let statistics = try await dateComponentAndStartEndDate.sorted { $0.key.day! < $1.key.day! }.asyncMap { _, value -> Double? in
       let currentDateCals = try await value.asyncMap { startDate, endDate in
         let statistics = try await HealthKitInitialHelper.getStatisticsList(
@@ -149,83 +157,122 @@ struct SLHealthKitManager {
           startDate: startDate,
           endDate: endDate
         )
-        let targetDateWorkoutsEnergy = statistics.compactMap { $0.sumQuantity()?.doubleValue(for: .largeCalorie())}
+        let targetDateWorkoutsEnergy = statistics.compactMap { $0.sumQuantity()?.doubleValue(for: .largeCalorie()) }
         return targetDateWorkoutsEnergy.reduce(0.0) { $0 + $1 }
       }
       let currentDateTotalKCals = currentDateCals.reduce(0.0) { $0 + $1 }
       return currentDateTotalKCals
     }.compactMap { $0 }
 
+    // Calculate average
     guard let average = statistics.average() else {
       throw SLError(types: .just("No Health Data to divide"))
     }
     return Int(average)
   }
 
+  /// Calculates the total calories burned during swimming workouts on a specific date.
+  /// - Parameter targetDate: The date to calculate the calories for.
+  /// - Returns: The total calories burned.
+  /// - Throws: An error if the calculation fails.
   var readTargetDateAverageCals: @Sendable (_ targetDate: Date) async throws -> Int
   @Sendable private static func _readWorkoutAverageCals(_ targetDate: Date) async throws -> Int {
     let (startDate, endDate) = startAndEndOfDay(for: targetDate)
     let workouts = try await HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
+
+    // Calculate calories for each workout
     let cals = try await workouts.asyncMap { workout in
       let statistics = try await HealthKitInitialHelper.getStatisticsList(
         quantity: .init(.activeEnergyBurned),
         startDate: workout.startDate,
         endDate: workout.endDate
       )
-      let targetDateWorkoutsEnergy = statistics.compactMap { $0.sumQuantity()?.doubleValue(for: .largeCalorie())}
+      let targetDateWorkoutsEnergy = statistics.compactMap { $0.sumQuantity()?.doubleValue(for: .largeCalorie()) }
       return targetDateWorkoutsEnergy.reduce(0.0) { $0 + $1 }
     }
+
+    // Sum up all calories
     return Int(cals.reduce(0.0) { $0 + $1 })
   }
 
+  /// Calculates the average duration of swimming workouts in a given month.
+  /// - Parameter targetDate: The date within the month to calculate the average duration for.
+  /// - Returns: The average duration in seconds.
+  /// - Throws: An error if the calculation fails.
   var readMonthWorkoutAverageSeconds: (_ targetDate: Date) async throws -> Int
   private static func _readMonthWorkoutAverageSeconds(_ targetDate: Date) async throws -> Int {
     let (startDate, endDate) = firstAndLastDateOfMonth(for: targetDate)
     let workouts = try await HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
 
+    // Calculate total time and count of workout dates
     let totalTime = workouts.reduce(0) { $0 + $1.duration }
     let totalCountOfWorkoutDate = Set(workouts.map { dateFormatter.string(from: $0.startDate) }).count
+
     if totalCountOfWorkoutDate == 0 {
       return 0
     }
 
+    // Calculate average
     return Int(totalTime) / totalCountOfWorkoutDate
   }
 
+  /// Calculates the total duration of swimming workouts on a specific date.
+  /// - Parameter targetDate: The date to calculate the duration for.
+  /// - Returns: The total duration in seconds.
+  /// - Throws: An error if the calculation fails.
   var readTargetDateWorkoutSeconds: (_ targetDate: Date) async throws -> Int
   private static func _readTargetDateWorkoutSeconds(_ targetDate: Date) async throws -> Int {
     let (startDate, endDate) = startAndEndOfDay(for: targetDate)
     let workouts = try await HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
 
+    // Sum up all workout durations
     let totalTime = workouts.reduce(0) { $0 + $1.duration }
     return Int(totalTime)
   }
 
+  /// Calculates the average distance of swimming workouts in a given month.
+  /// - Parameter date: The date within the month to calculate the average distance for.
+  /// - Returns: The average distance in meters.
+  /// - Throws: An error if the calculation fails.
   var readMonthWorkoutAverageDistance: (_ date: Date) async throws -> Int
   private static func _readMonthWorkoutAverageDistance(_ date: Date) async throws -> Int {
     let (startDate, endDate) = firstAndLastDateOfMonth(for: date)
     let samples = try await HealthKitInitialHelper.getDailySwimDistanceStatistics(startDate, endDate)
 
+    // Calculate total count of workout dates
     let totalCountOfWorkoutDate = Set(samples.map { dateFormatter.string(from: $0.startDate) }).count
     if totalCountOfWorkoutDate == 0 {
-      return 10
+      return 10 // Default value if no workouts
     }
+
+    // Calculate sum of distances
     let sumOfSamplesDistance = samples.compactMap { $0.sumQuantity()?.doubleValue(for: .meter()) }.reduce(0) { $0 + Int($1) }
+
+    // Calculate average
     return sumOfSamplesDistance / totalCountOfWorkoutDate
   }
 
+  /// Calculates the total distance of swimming workouts on a specific date.
+  /// - Parameter date: The date to calculate the distance for.
+  /// - Returns: The total distance in meters.
+  /// - Throws: An error if the calculation fails.
   var readTargetDateDistance: (_ date: Date) async throws -> Int
   private static func _readTargetDateDistance(_ date: Date) async throws -> Int {
     let (startDate, endDate) = startAndEndOfDay(for: date)
     let staticsList = try await HealthKitInitialHelper.getDailySwimDistanceStatistics(startDate, endDate)
+
+    // Sum up all distances
     let distances = staticsList.compactMap { $0.sumQuantity()?.doubleValue(for: .meter()) }
     let distance = distances.reduce(0) { $0 + $1 }
 
     return Int(distance)
   }
 
+  /// Retrieves heart rate samples for swimming workouts on a specific date.
+  /// - Parameter targetDate: The date to retrieve heart rate samples for.
+  /// - Returns: An array of arrays of `HKQuantitySample` representing heart rate samples for each workout.
+  /// - Throws: An error if the retrieval fails.
   private static func getTargetDateSwimmingHeartRateSamples(_ targetDate: Date) async throws -> [[HKQuantitySample]] {
-    // 수영 WorkoutData 구하기
     let (startDate, endDate) = startAndEndOfDay(for: targetDate)
 
     let workoutSamples = try await HealthKitInitialHelper.getSwimmingWorkoutTypes(startDate, endDate)
@@ -240,6 +287,10 @@ struct SLHealthKitManager {
     return heartRateSamples
   }
 
+  /// Calculates the time spent in different heart rate zones during swimming workouts on a specific date.
+  /// - Parameter date: The date to calculate heart rate zones for.
+  /// - Returns: A dictionary mapping `HeartRateZone` to time spent in that zone (in seconds).
+  /// - Throws: An error if the calculation fails.
   var calculateTimeInHeartRateZones: (_ date: Date) async throws -> [HeartRateZone: TimeInterval]
   private static func _calculateTimeInHeartRateZones(targetDate: Date) async throws -> [HeartRateZone: TimeInterval] {
     let heartRateSamples = try await getTargetDateSwimmingHeartRateSamples(targetDate).flatMap { $0 }
@@ -249,19 +300,19 @@ struct SLHealthKitManager {
 
     var prevDate: Date?
     heartRateSamples.forEach { sample in
-
       let heartRateUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
       let heartRate = Int(sample.quantity.doubleValue(for: heartRateUnit))
       guard let heartRateZone = zoneManager.getHeartRateZone(for: heartRate) else {
         return
       }
-      // 과거 데이터가 없을 경우
+      // Handle case when there's no previous data
       guard let targetPrevDate = prevDate else {
         prevDate = sample.startDate
         return
       }
 
       let interval = sample.startDate.timeIntervalSince(targetPrevDate)
+      // Skip if interval is too long or negative
       if interval / 60 > 5 || interval < 0 {
         prevDate = nil
         return
@@ -272,14 +323,18 @@ struct SLHealthKitManager {
     return res
   }
 
+  /// Retrieves heart rate samples for swimming workouts on a specific date and prepares them for chart display.
+  /// - Parameter date: The date to retrieve heart rate samples for.
+  /// - Returns: A `HeartRateChartProperty` object containing chart data.
+  /// - Throws: An error if the retrieval or processing fails.
   var getHeartRateSamples: (_ date: Date) async throws -> HeartRateChartProperty
   private static func _getHeartRateSamples(_ targetDate: Date) async throws -> HeartRateChartProperty {
     let samples = try await getTargetDateSwimmingHeartRateSamples(targetDate)
     let flatSamples = samples.flatMap { $0 }
     let heartRateUnit = HKUnit.count().unitDivided(by: HKUnit.minute())
     let samplesHeartRate = flatSamples.map { (Int($0.quantity.doubleValue(for: heartRateUnit)), $0.startDate) }
-    let maximumHeartRate = samplesHeartRate.max(by: { $0.0 < $1.0 })?.0 ?? 100 // TODO: Default Value 수정
-    let minimumHeartRate = samplesHeartRate.min(by: { $0.0 < $1.0 })?.0 ?? 180 // TODO: Default Value 수정
+    let maximumHeartRate = samplesHeartRate.max(by: { $0.0 < $1.0 })?.0 ?? 100 // Default value if no data
+    let minimumHeartRate = samplesHeartRate.min(by: { $0.0 < $1.0 })?.0 ?? 180 // Default value if no data
     var items: [HeartRateChartElement] = []
     let totalSeconds = samples
       .map { sample in
@@ -295,20 +350,19 @@ struct SLHealthKitManager {
     var xValueWeight: Double = 0
     let heartRateWeightSum = samples
       .map { samples in
-        // 과거 날짜
         var prevDate: Date? = nil
         var currentHeartRateWeightSum = 0
 
         samples.forEach { sample in
-          // 만약 prevDate가 nil일경우 즉 초기 값일 경우
+          // Handle initial case when prevDate is nil
           guard let currentPrevDate = prevDate else {
             prevDate = sample.startDate
             return
           }
-          // convert heart Rate, get interval
+          // Convert heart rate and get interval
           let currentHeartRate = sample.quantity.doubleValue(for: heartRateUnit)
           let interval = Double(sample.startDate.timeIntervalSince(currentPrevDate))
-          // calculate WeightSum
+          // Calculate weighted sum
           currentHeartRateWeightSum += Int(currentHeartRate * interval)
 
           items.append(.init(interval: xValueWeight + interval, y: Int(currentHeartRate)))
@@ -332,9 +386,13 @@ struct SLHealthKitManager {
     )
   }
 
+  /// Retrieves the distance swam for each stroke style on a specific date.
+  /// - Parameter date: The date to retrieve stroke style distances for.
+  /// - Returns: A dictionary mapping `SLStrokeStyle` to distance in meters.
+  /// - Throws: An error if the retrieval or processing fails.
   var getStrokeStyleDistance: (_ date: Date) async throws -> [SLStrokeStyle: Int]
   private static func _getStrokeStyleDistance(_ targetDate: Date) async throws -> [SLStrokeStyle: Int] {
-    // GetDistanceAtSpecificDate Closure
+    // Closure to get distance for a specific time range
     let getDistanceClosure: (_ startDate: Date, _ endDate: Date) async throws -> Int? = { startDate, endDate in
       let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
       let swimWorkoutPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -368,7 +426,7 @@ struct SLHealthKitManager {
       return targetDistance
     }
 
-    // Swim storke style logic
+    // Get swim stroke style samples
     let (startDate, endDate) = startAndEndOfDay(for: targetDate)
     let datePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
     let swimWorkoutPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
@@ -396,7 +454,7 @@ struct SLHealthKitManager {
       )
     }
 
-    // return logic
+    // Calculate distance for each stroke style
     var distanceByStrokeStyle: [SLStrokeStyle: Int] = [:]
     await workoutSamples.asyncForEach { sample in
       if let strokeStyleInt = sample.metadata?["HKSwimmingStrokeStyle"] as? Int,
@@ -408,9 +466,16 @@ struct SLHealthKitManager {
     return distanceByStrokeStyle
   }
 
+  /// A helper enum containing methods for interacting with HealthKit.
   private enum HealthKitInitialHelper {
     static let store: HKHealthStore = SLHealthKitManager.store
 
+    /// Retrieves daily swimming distance statistics for a given date range.
+    /// - Parameters:
+    ///   - startDate: The start date of the range.
+    ///   - endDate: The end date of the range.
+    /// - Returns: An array of `HKStatistics` objects representing daily swimming distances.
+    /// - Throws: An error if the retrieval fails.
     static var getDailySwimDistanceStatistics: @Sendable (
       _ startDate: Date?,
       _ endDate: Date?
@@ -443,6 +508,12 @@ struct SLHealthKitManager {
       }
     }
 
+    /// Retrieves swimming workout samples for a given date range.
+    /// - Parameters:
+    ///   - startDate: The start date of the range.
+    ///   - endDate: The end date of the range.
+    /// - Returns: An array of `HKWorkout` objects representing swimming workouts.
+    /// - Throws: An error if the retrieval fails.
     static var getSwimmingWorkoutTypes: @Sendable (
       _ startDate: Date?,
       _ endDate: Date?
@@ -475,6 +546,12 @@ struct SLHealthKitManager {
       }
     }
 
+    /// Retrieves heart rate samples for a given date range.
+    /// - Parameters:
+    ///   - startDate: The start date of the range.
+    ///   - endDate: The end date of the range.
+    /// - Returns: An array of `HKQuantitySample` objects representing heart rate measurements.
+    /// - Throws: An error if the retrieval fails.
     static var getHeartRate: @Sendable (_ startDate: Date?, _ endDate: Date?) async throws -> [HKQuantitySample] = { startDate, endDate in
       return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[HKQuantitySample], Error>) in
         let heartRatePredicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
@@ -498,6 +575,11 @@ struct SLHealthKitManager {
       }
     }
 
+    /// Retrieves statistics for a given quantity type and date range.
+    /// - Parameters:
+    ///   - quantity: The `HKQuantityType` to retrieve statistics for.
+    ///   - intervalComponents: The interval to group statistics by (default is 1 day).
+    ///   - startDate: The start date of the range.
     @Sendable static func getStatisticsList(
       quantity: HKQuantityType,
       intervalComponents: DateComponents = .init(day: 1),
