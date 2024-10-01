@@ -19,7 +19,7 @@ UICalendarView를 UICalendarViewController로 만들고, 이를 SwiftUIView로 �
 
 Stroke종류(자유형, 평형, 배영, 접영, 킥판, 기타) Meta Data에 관한 항목이 에플 문서에 자세하게 써있지 않아서 다양한 HealthKit쿼리를 날려보면서 찾았습니다. 
 또한 MetaData를 찾고 나서도 스트로크에 관한 정보들을 통해 다시 HealthKit에 질의하는 과정들이 있었습니다.
-자료들이 코드를 작성하는데에 오래 걸렸습니다. 
+참고할 자료들이 없어서 코드를 작성하는데 오래 걸렸습니다. 
 
 ### 완성 화면
 
