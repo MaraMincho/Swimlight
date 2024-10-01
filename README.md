@@ -13,7 +13,7 @@ UICalendarView를 UICalendarViewController로 만들고, 이를 SwiftUIView로 �
 
 ![alt text](image-1.png)
 
-
+<br/><br/>
 
 ## Stroke Meta Data 가져오기
 
@@ -114,7 +114,7 @@ Stroke종류(자유형, 평형, 배영, 접영, 킥판, 기타) Meta Data에 관
 
 
 ```
-
+<br/><br/>
 
 
 ## HeartRate관련 로직
