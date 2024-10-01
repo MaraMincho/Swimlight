@@ -1,6 +1,8 @@
 # Swimlight
 Swimlight는 수영 애호가들을 위한 혁신적인 iOS 애플리케이션입니다. HealthKit의 수영 관련 데이터를 광범위하게 활용하여 사용자에게 포괄적인 수영 경험과 상세한 분석을 제공합니다. (2024.09.16 ~ 18, 30)
 
+![image](https://blog.kakaocdn.net/dn/bPyuJT/btsJRfdXpdh/P53q5l10FKMIMCyoGkMDqk/img.gif)
+
 <br/><br/>
 
 # 주요 기능 🏊🏊‍♀️🏊‍♂️ 
